@@ -1,54 +1,183 @@
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const { resolve } = require('path');
 
-const runCommand = (command) => {
-  console.log(`Running command: ${command}`);
-  exec(command, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`Error: ${error}`);
-      return;
-    }
-    console.log(`stdout: ${stdout}`);
-    console.error(`stderr: ${stderr}`);
+const runCommand = async (command, folderName) => {
+  console.log(`Running command: ${command} in folder: ${folderName}`);
+  return new Promise((resolve, reject)=> {
+    exec(`cd ${folderName} && ${command}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error: ${error}`);
+        reject(error);
+        return;
+      }
+      console.log(`stdout: ${stdout}`);
+      console.error(`stderr: ${stderr}`);
+      resolve(stdout);
+    })
+  });
+};
+
+const runBuildCommand = async (command, folderName) => {
+  console.log(`Running Build command: ${command} in folder: ${folderName}`);
+  return new Promise((resolve, reject)=> {
+    var buildProcess = exec(`cd ${folderName} && ${command}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error: ${error}`);
+        reject(error);
+        return;
+      }
+      console.log(`stdout: ${stdout}`);
+      console.error(`stderr: ${stderr}`);
+      resolve(stdout);
+    });
+    let output = '';
+    buildProcess.on('data', function(data) {
+      console.log(data);
+      output+=data.toString();
+      // if this is an error log, pass error and relevant information into a debugging endpoint. 
+    });
   });
 };
 
 const createFile = (filepath, content) => {
   console.log(`Creating file: ${filepath}`);
-  const baseFilePath = removeFileFromPath(filepath);
+  const baseFilePath = path.dirname(filepath);
   createDirectory(baseFilePath);
-  fs.writeFileSync(filepath, content);
+  fs.writeFileSync(path.join(filepath), content);
 };
 
-function removeFileFromPath(filePath) {
-    return filePath.substring(0, filePath.lastIndexOf("/"));
+const isRunnableCode = (line) => {
+  result = true;
+  if (line === "```") {
+    result = false;
+  }
+  return result;
 }
 
 const createDirectory = (filePath) => {
-    const dirName = path.dirname(filePath);
+    const dirName = filePath;
     if (fs.existsSync(dirName)) {
+      console.log('directory exists! ', dirName);
       return;
     }
+    console.log('Creating directory: ' + filePath);
     fs.mkdirSync(dirName, { recursive: true });
 };
 
-fs.readFile('input.txt', 'utf-8', (err, data) => {
+const folderName = process.argv[2];
+const inputFile = process.argv[3];
+
+createDirectory(folderName);
+
+function interpretInput(input) {
+
+}
+
+fs.readFile(inputFile, 'utf-8', async (err, data) => {
   if (err) throw err;
+
+  let currentDirectory = folderName;
   
   const lines = data.split('\n');
-  for (const line of lines) {
-    console.log(line);
-    if (line.startsWith('run_command: ')) {
-      runCommand(line.slice(13));
-    } else if (line.startsWith('new_file: ')) {
-      let filepath = line.slice(10);
-      let content = '';
-      while (lines.indexOf(line) + 1 < lines.length && !lines[lines.indexOf(line) + 1].startsWith('end new_file')) {
-        content += lines[lines.indexOf(line) + 1] + '\n';
-        line = lines[lines.indexOf(line) + 1];
+  let content = '';
+  let filepath = '';
+  let isNewFile = false;
+  try {
+    for (let line of lines) {
+      console.log(line);
+      if (line.startsWith('run_command: ')) {
+        console.log('Command found! Running...');
+        const command = line.substring(13);
+        if (command.startsWith('cd ')) {
+          currentDirectory = path.resolve(currentDirectory, command.substring(3));
+          console.log(`Changed current directory to ${currentDirectory}`);
+        } 
+        else {
+          await runCommand(command, currentDirectory);
+        }
+      } else if (line.startsWith('new_file: ')) {
+        console.log('File found! Creating...');
+        filepath = line.substring(10);
+        content = '';
+        isNewFile = true;
+      } else if (isNewFile) {
+        if (line.startsWith('end new_file')) {
+          isNewFile = false;
+          createFile(path.join(currentDirectory, filepath), content);
+          continue;
+        }
+        if (!isRunnableCode(line)) {
+          continue;
+        }
+        console.log(line);
+        content += (line + '\n');
+      } else {
+        console.log('Irrelevant line.');
       }
-      createFile(filepath, content);
     }
+  } catch (err) {
+
   }
 });
+
+function interpretInput(input) {
+  fs.readFileSync(input, 'utf-8', async (err, data) => {
+    if (err) throw err;
+  
+    let currentDirectory = folderName;
+    
+    const lines = data.split('\n');
+    let content = '';
+    let filepath = '';
+    let isNewFile = false;
+    let runnningLog = '';
+    try {
+      for (let line of lines) {
+        console.log(line);
+        runnningLog+=line;
+        if (line.startsWith('run_command: ')) {
+          console.log('Command found! Running...');
+          const command = line.substring(13);
+          if (command.startsWith('cd ')) {
+            currentDirectory = path.resolve(currentDirectory, command.substring(3));
+            console.log(`Changed current directory to ${currentDirectory}`);
+          } 
+          else {
+            await runCommand(command, currentDirectory);
+          }
+        } else if (line.startsWith('new_file: ')) {
+          console.log('File found! Creating...');
+          filepath = line.substring(10);
+          content = '';
+          isNewFile = true;
+        } else if (isNewFile) {
+          if (line.startsWith('end new_file')) {
+            isNewFile = false;
+            createFile(path.join(currentDirectory, filepath), content);
+            continue;
+          }
+          if (!isRunnableCode(line)) {
+            continue;
+          }
+          console.log(line);
+          content += (line + '\n');
+        } else {
+          console.log('Irrelevant line.');
+        }
+      }
+    } catch (err) {
+      // There was an error at compile time. Call Debugger.
+      numRetries++;
+      if (numRetries > 5) {
+        console.error('Retries have failed too many times. Exiting...');
+        throw err;
+      }
+      console.error(`There was an error: ${err.toString()} Debugging...`);
+      const debuggingResult = await getDebuggingResult(runnningLog + err.toString());
+      createFile('debugfile.txt', debuggingResult);
+      interpretInput('debugfile.txt');
+    }
+  });
+}

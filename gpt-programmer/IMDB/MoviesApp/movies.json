@@ -1,0 +1,28 @@
+
+[
+  {
+    "title": "The Shawshank Redemption",
+    "genre": "Drama",
+    "year": 1994
+  },
+  {
+    "title": "The Godfather",
+    "genre": "Crime",
+    "year": 1972
+  },
+  {
+    "title": "The Dark Knight",
+    "genre": "Action",
+    "year": 2008
+  },
+  {
+    "title": "Schindler's List",
+    "genre": "Drama",
+    "year": 1993
+  },
+  {
+    "title": "The Lord of the Rings: The Return of the King",
+    "genre": "Adventure",
+    "year": 2003
+  }
+]

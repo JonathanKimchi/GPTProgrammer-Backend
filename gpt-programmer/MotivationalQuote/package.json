@@ -1,14 +1,15 @@
 {
-  "name": "gpt-programmer",
+  "name": "motivationalquote",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "react-native-elements": "^3.4.3"
+    "express": "^4.18.2"
   }
 }

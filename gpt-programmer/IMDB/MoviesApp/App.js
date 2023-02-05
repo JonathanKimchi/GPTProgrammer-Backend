@@ -1,48 +1,4 @@
-Here's a step-by-step process to create a Movies app using React Native Expo:
 
-Create a new React Native project:
-run_command: expo init MoviesApp --template blank
-
-Change into the project directory:
-run_command: cd MoviesApp
-
-Create a mock JSON file for data:
-new_file: movies.json
-
-```
-[
-  {
-    "title": "The Shawshank Redemption",
-    "genre": "Drama",
-    "year": 1994
-  },
-  {
-    "title": "The Godfather",
-    "genre": "Crime",
-    "year": 1972
-  },
-  {
-    "title": "The Dark Knight",
-    "genre": "Action",
-    "year": 2008
-  },
-  {
-    "title": "Schindler's List",
-    "genre": "Drama",
-    "year": 1993
-  },
-  {
-    "title": "The Lord of the Rings: The Return of the King",
-    "genre": "Adventure",
-    "year": 2003
-  }
-]
-end new_file
-
-Create a file App.js in the root of the project:
-new_file: App.js
-
-```
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList } from 'react-native';
 
@@ -130,8 +86,3 @@ const styles = StyleSheet.create({
 });
 
 export default App;
-```
-end new_file
-
-Start the app:
-run_command: expo start
