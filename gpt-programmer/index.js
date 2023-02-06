@@ -37,6 +37,7 @@ const runBuildCommand = async (command, folderName) => {
       console.log(data);
       output+=data.toString();
       // if this is an error log, pass error and relevant information into a debugging endpoint. 
+
     });
   });
 };
@@ -122,21 +123,18 @@ fs.readFile(inputFile, 'utf-8', async (err, data) => {
   }
 });
 
-function interpretInput(input) {
-  fs.readFileSync(input, 'utf-8', async (err, data) => {
-    if (err) throw err;
-  
+async function interpretInput(input) {
     let currentDirectory = folderName;
     
-    const lines = data.split('\n');
+    const lines = input.split('\n');
     let content = '';
     let filepath = '';
     let isNewFile = false;
-    let runnningLog = '';
+    let runningLog = '';
     try {
       for (let line of lines) {
         console.log(line);
-        runnningLog+=line;
+        runningLog+=line;
         if (line.startsWith('run_command: ')) {
           console.log('Command found! Running...');
           const command = line.substring(13);
@@ -175,9 +173,8 @@ function interpretInput(input) {
         throw err;
       }
       console.error(`There was an error: ${err.toString()} Debugging...`);
-      const debuggingResult = await getDebuggingResult(runnningLog + err.toString());
-      createFile('debugfile.txt', debuggingResult);
-      interpretInput('debugfile.txt');
+      // const debuggingResult = await getDebuggingResult(runningLog + err.toString());
+      // createFile('debugfile.txt', debuggingResult);
+      // interpretInput('debugfile.txt');
     }
-  });
 }
