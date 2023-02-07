@@ -53,9 +53,7 @@ const runBuildCommand = async (command, folderName) => {
       }
       console.error(data);
       errorOutput+=data.toString();
-      if (data.toString().endsWith('\n\n\n')) {
-        reject(errorOutput);
-      }
+      // reject(errorOutput);
     });
   });
 };
