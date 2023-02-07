@@ -1,82 +1,70 @@
-Here's a step-by-step process to create a website using Node.js, React, and Express that takes in a text prompt and returns a QR code of an Expo app that was created to match the text prompt:
+Here's a step-by-step process to create a Calculator app using React Native Expo:
 
-Create a new Node.js project with Express and React:
-run_command: npx create-react-app my-app
+Create a new React Native project:
+run_command: expo init CalculatorApp --template blank
 
 Change into the project directory:
-run_command: cd my-app
-
-Install necessary packages:
-run_command: npm install express body-parser qrcode-generator
-
-Create a file server.js in the root of the project:
-new_file: server.js
-
-```
-const express = require('express');
-const bodyParser = require('body-parser');
-const qrcode = require('qrcode-generator');
-
-const app = express();
-
-app.use(bodyParser.json());
-
-app.post('/generate-code', (req, res) => {
-  const { text } = req.body;
-  const qr = qrcode(0, "L");
-  qr.addData(text);
-  qr.make();
-
-  res.status(200).send(qr.createImgTag(4));
-});
-
-app.post('/execute-code', (req, res) => {
-  const { qrcode } = req.body;
-  // Execute code here
-
-  res.status(200).send('QR code successfully created!');
-});
-
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Listening on port ${port}`);
-});
-```
-end new_file
+run_command: cd CalculatorApp
 
 Create a file App.js in the root of the project:
 new_file: App.js
 
 ```
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Button } from 'react-native';
-import { post } from 'axios';
+import { View, Text, StyleSheet, TextInput, Buttos } from 'react-native';
 
 const App = () => {
-  const [text, setText] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [input, setInput] = useState('');
 
-  const handleTextInput = (text) => {
-    setText(text);
+  const handleInput = (text) => {
+    setInput(text);
   };
 
-  const handleSubmit = async () => {
-    setLoading(true);
-    const res = await post('/generate-code', { text });
-    await post('/execute-code', { qrcode: res.data });
-    setLoading(false);
+  const handleButtonPress = (text) => {
+    setInput(input + text);
+  };
+
+  const handleEvaluate = () => {
+    const expression = input;
+    setInput(String(eval(expression)));
+  };
+
+  const handleClear = () => {
+    setInput('');
   };
 
   return (
     <View style={styles.container}>
       <TextInput
         style={styles.textInput}
-        placeholder="Enter a text prompt"
-        value={text}
-        onChangeText={handleTextInput}
+        placeholder="Enter an expression"
+        value={input}
+        onChangeText={handleInput}
       />
-      <Button title="Submit" onPress={handleSubmit} />
-      {loading && <Text>Loading...</Text>}
+      <View style={styles.buttonsContainer}>
+        <Button title="7" onPress={() => handleButtonPress('7')} />
+        <Button title="8" onPress={() => handleButtonPress('8')} />
+        <Button title="9" onPress={() => handleButtonPress('9')} />
+        <Button title="+" onPress={() => handleButtonPress('+')} />
+      </View>
+      <View style={styles.buttonsContainer}>
+        <Button title="4" onPress={() => handleButtonPress('4')} />
+        <Button title="5" onPress={() => handleButtonPress('5')} />
+        <Button title="6" onPress={() => handleButtonPress('6')} />
+        <Button title="-" onPress={() => handleButtonPress('-')} />
+      </View>
+      <View style={styles.buttonsContainer}>
+        <Button title="1" onPress={() => handleButtonPress('1')} />
+        <Button title="2" onPress={() => handleButtonPress('2')} />
+        <Button title="3" onPress={() => handleButtonPress('3')} />
+        <Button title="*" onPress={() => handleButtonPress('*')} />
+      </View>
+      <View style={styles.buttonsContainer}>
+        <Button title="Clear" onPress={handleClear} />
+        <Button title="0" onPress={() => handleButtonPress('0')} />
+        <Button title="=" onPress={handleEvaluate} />
+        <Button title="/" onPress={() => handleButtonPress('/')} />
+      </View>
     </View>
   );
 };
@@ -84,8 +72,8 @@ const App = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop: 40,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   textInput: {
     width: '80%',
@@ -94,6 +82,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
   },
+  buttonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '80%',
+  },
 });
 
 export default App;
@@ -101,4 +94,4 @@ export default App;
 end new_file
 
 Start the app:
-run_command: npm start
+build_command: expo start
