@@ -66,9 +66,9 @@ const createFile = (filepath, content) => {
   fs.writeFileSync(path.join(filepath), content);
 };
 
-const isRunnableCode = (line) => {
+const isRunnableCode = (command) => {
   result = true;
-  if (line === "```") {
+  if (command === "```") {
     result = false;
   }
   return result;
@@ -99,9 +99,9 @@ function getUserInput(str) {
   let lines = str.split('\n');
   let hashmap = {};
 
-  for (let line of lines) {
-    if (line.startsWith('request_info:')) {
-      let parts = line.split('--');
+  for (let command of lines) {
+    if (command.startsWith('request_info:')) {
+      let parts = command.split('--');
       let promptInfo = parts[0].slice(13).trim();
       let varName = parts[1].trim();
       let userInput = prompt(promptInfo);
@@ -117,7 +117,7 @@ function replaceVariables(str) {
 
   for (let key in hashmap) {
     let value = hashmap[key];
-    let pattern = new RegExp(key, 'g');
+    let pattern = new RegExp("${"+key+"}", 'g');
 
     if (!value.startsWith('"') && !value.endsWith('"')) {
       value = `"${value}"`;
@@ -129,10 +129,158 @@ function replaceVariables(str) {
   return str;
 }
 
+/**
+ * This function takes in a list of objects and returns a string
+ * @param {Array} commandList
+ * @returns {string}
+ */
+function convertCommandsToRawOutput(commandList) {
+  let outputString = '';
+  for (let command of commandList) {
+    if (command.type === 'build_command') {
+      outputString += `build_command: ${command.command}\n`;
+    } else if (command.type === 'run_command') {
+      outputString += `run_command: ${command.command}\n`;
+    } else if (command.type === 'new_file') {
+      outputString += `new_file: ${command.filePath}\n`;
+      outputString += `${command.content}\n`;
+      outputString += `end new_file\n`;
+    }
+  }
+  return outputString;
+}
 
-async function interpretInput(input, folderName = "test") {
+/**
+ * This function takes in a string and returns a list of commands
+ * @param {string} inputString
+ * @returns {Array}
+ */
+function convertRawOutputToCommandList(inputString) {
+  const inputLines = inputString.trim().split('\n');
+  const commandList = [];
+  let currentFile = {};
+  let isNewFile = false;
+  let lineData = {};
+
+  for (let command of inputLines) {
+    lineData = {};
+
+    if (command.startsWith('build_command:')) {
+      lineData.type = 'build_command';
+      lineData.command = command.slice(15).trim();
+      commandList.push(lineData);
+    } else if (command.startsWith('run_command:')) {
+      lineData.type = 'run_command';
+      lineData.command = command.slice(13).trim();
+      commandList.push(lineData);
+    } else if (command.startsWith('new_file:')) {
+      currentFile.type = 'new_file';
+      currentFile.filePath = command.slice(10).trim();
+      isNewFile = true;
+      currentFile.content = '';
+    } else if (isNewFile) {
+      if (command.startsWith('end new_file')) {
+        isNewFile = false;
+        commandList.push(currentFile);
+        currentFile = {};
+        continue;
+      }
+      if (!isRunnableCode(command)) {
+        continue;
+      }
+      console.log(command);
+      currentFile.content += (command + '\n');
+    } else {
+      console.log('Irrelevant command.');
+    }
+  }
+  console.log("Command List:");
+  console.log(commandList);
+
+  return commandList;
+}
+
+async function processInput(inputString) {
+  return convertRawOutputToCommandList(inputString);
+}
+
+/**
+ * This function takes in a list of commands and runs the commands
+ */
+async function interpretInput(commandList, folderName = "test") {
+  let currentDirectory = folderName;
+
+  let content = '';
+  let filepath = '';
+  let isNewFile = false;
+  let runningLog = '';
+  let lastLineRun = '';
+  try {
+    for (let commandObject of commandList) {
+      console.log(commandObject);
+      // lastLineRun = command;
+      // runningLog+=command;
+      if (commandObject.type === 'build_command') {
+        console.log('Command found! Running...');
+        lastLineRun = commandObject.command;
+        const command = commandObject.command;
+        const buildOutput = await runBuildCommand(command, currentDirectory);
+        return filterBuildOutput(buildOutput);
+      } 
+      else if (commandObject.type === 'run_command') {
+        console.log('Command found! Running...');
+        lastLineRun = commandObject.command;
+        const command = commandObject.command;
+        if (command.startsWith('cd ')) {
+          currentDirectory = path.resolve(currentDirectory, command.substring(3));
+          console.log(`Changed current directory to ${currentDirectory}`);
+        }
+        else {
+          await runCommand(command, currentDirectory);
+        }
+      } 
+      else if (commandObject.type === 'new_file') {
+        console.log('File found! Creating...');
+        filepath = commandObject.filePath;
+        createFile(path.join(currentDirectory, filepath), commandObject.content);
+      } 
+      else {
+        console.log('Irrelevant command.');
+      }
+    }
+  } catch (err) {
+    // There was an error at compile time. Call Debugger.
+    numRetries++;
+    if (numRetries > 5) {
+      console.error('Retries have failed too many times. Exiting...');
+      throw err;
+    }
+    console.error(`There was an error: ${err.toString()} Debugging...`);
+    // TODO: Fix this to work with raw input again.
+    const debuggingResult = await getDebuggingCode(runningLog + err.toString());
+    const debuggingCommandList = await processInput(debuggingResult);
+    let qrCodeUri = await interpretInput(debuggingCommandList, currentDirectory);
+    if (qrCodeUri) {
+      return qrCodeUri;
+    }
+    runningLog = runningLog.substring(0,runningLog.length - lastLineRun.length);
+    let debuggingStart = runningLog.length;
+    runningLog+=debuggingResult;
+    let fixedCode = await getGeneratedCode(runningLog);// note: doesn't have original prompt. Edit model so that it includes it.
+    let fixedCommandList = await processInput(fixedCode);
+    return await interpretInput(fixedCommandList, currentDirectory);
+    // This should really pass in the entire log.
+  }
+  return null;
+}
+
+/**
+ * This function takes in a string and returns a list of commands
+ * @deprecated
+ */
+async function interpretInputDep(input, folderName = "test") {
     let currentDirectory = folderName;
-    input = replaceVariables(input);
+    // input = replaceVariables(input);
     const lines = input.split('\n');
     console.log(lines);
     
@@ -142,18 +290,18 @@ async function interpretInput(input, folderName = "test") {
     let runningLog = '';
     let lastLineRun = '';
     try {
-      for (let line of lines) {
-        console.log(line);
-        lastLineRun = line;
-        runningLog+=line;
-        if (line.startsWith('build_command: ')) {
+      for (let command of lines) {
+        console.log(command);
+        lastLineRun = command;
+        runningLog+=command;
+        if (command.startsWith('build_command: ')) {
           console.log('Command found! Running...');
-          const command = line.substring(15);
+          const command = command.substring(15);
           const buildOutput = await runBuildCommand(command, currentDirectory);
           return filterBuildOutput(buildOutput);
-        } else if (line.startsWith('run_command: ')) {
+        } else if (command.startsWith('run_command: ')) {
           console.log('Command found! Running...');
-          const command = line.substring(13);
+          const command = command.substring(13);
           if (command.startsWith('cd ')) {
             currentDirectory = path.resolve(currentDirectory, command.substring(3));
             console.log(`Changed current directory to ${currentDirectory}`);
@@ -161,24 +309,24 @@ async function interpretInput(input, folderName = "test") {
           else {
             await runCommand(command, currentDirectory);
           }
-        } else if (line.startsWith('new_file: ')) {
+        } else if (command.startsWith('new_file: ')) {
           console.log('File found! Creating...');
-          filepath = line.substring(10);
+          filepath = command.substring(10);
           content = '';
           isNewFile = true;
         } else if (isNewFile) {
-          if (line.startsWith('end new_file')) {
+          if (command.startsWith('end new_file')) {
             isNewFile = false;
             createFile(path.join(currentDirectory, filepath), content);
             continue;
           }
-          if (!isRunnableCode(line)) {
+          if (!isRunnableCode(command)) {
             continue;
           }
-          console.log(line);
-          content += (line + '\n');
+          console.log(command);
+          content += (command + '\n');
         } else {
-          console.log('Irrelevant line.');
+          console.log('Irrelevant command.');
         }
       }
     } catch (err) {
@@ -199,10 +347,62 @@ async function interpretInput(input, folderName = "test") {
       runningLog+=debuggingResult;
       let fixedCode = await getGeneratedCode(runningLog);// note: doesn't have original prompt. Edit model so that it includes it.
 
-      return await interpretInput(fixedCode.substring(debuggingStart), currentDirectory);
+      return await interpretInput(fixedCode, currentDirectory);
       // This should really pass in the entire log.
     }
     return null;
+}
+
+async function toFileStringArray(input, folderName = "test") {
+  let currentDirectory = folderName;
+  // input = replaceVariables(input);
+  const lines = input.split('\n');
+  console.log(lines);
+
+  const foundFiles = [];
+  
+  let content = '';
+  let filepath = '';
+  let isNewFile = false;
+  let runningLog = '';
+  let lastLineRun = '';
+  try {
+    for (let command of lines) {
+      console.log(command);
+      lastLineRun = command;
+      runningLog+=command;
+      if (command.startsWith('new_file: ')) {
+        console.log('File found! Reading...');
+        content = command +'\n';
+        isNewFile = true;
+      } else if (isNewFile) {
+        if (command.startsWith('end new_file')) {
+          isNewFile = false;
+          content+= (command + '\n');
+          foundFiles.push(content);
+          continue;
+        }
+        console.log(command);
+        content += (command + '\n');
+      } else {
+        console.log('Irrelevant command.');
+      }
+    }
+  } catch (err) {
+    // There was an error at compile time. Call Debugger.
+    console.error(`There was an error when parsing file list: ${err.toString()}`);
+  }
+  return foundFiles;
+}
+
+async function getFileCommands(commandList) {
+  const fileCommands = [];
+  for (let command of commandList) {
+    if (command.type === 'new_file') {
+      fileCommands.push(command);
+    }
+  }
+  return fileCommands;
 }
 
 async function executeCode(input, folderName = 'test') {
@@ -229,6 +429,7 @@ async function getGeneratedCode(prompt) {
 }
 
 async function getDebuggingCode(errLog) {
+  await sleep(8000);
   const prePrompt = "You are a bot that takes in a log of a build error and generates the directions in a format that's easily parseable.\n\nif files need to be created, show me the files in this format:\n\nnew_file: {path of file}\n{content of file}\nend new_file\n\nif a command needs to be run, show me the command in this format:\n\nrun_command: {command to be run}\n\nif a command needs to be run, always use a non-interactive command.\n\nif multiple user-created files are required, you should create all the files required.\n\nInput: How can I fix this code?\n\n";
     const request = errLog;
     const response = await openai.createCompletion({
@@ -244,6 +445,32 @@ async function getDebuggingCode(errLog) {
     return response.data.choices[0].text;
 }
 
+/**
+ * This function takes in a code snippet and returns the stylized code.
+ * @param {string} codeSnippet The code snippet to be stylized.
+ */
+async function getStylizedCode(codeSnippet) {
+  const prePrompt = "You are a bot that takes in code file contents (possibly multiple files) and makes it stylized. The changes should have a modern, vibrant feel to it.\n\nDescribe step by step what changes should be made, and then show me the changed files.\n\nIf the stylistic changes require that new packages be installed, display the commands you need to run to install the new package using this format:\n\nrun_command: {install command to be run}\n\nFiles are marked using these demarcations:\n\nnew_file: {filePath}\n{contents of file}\nend new_file\n\nMake sure the end style makes the app easy to use and that it makes elements fill the screen properly.\n\nInput: \n\n";
+    const request = codeSnippet;
+    const response = await openai.createCompletion({
+        model: "text-davinci-003",
+        prompt: prePrompt + request,
+        temperature: 0.7,
+        max_tokens: 2000,
+        top_p: 1,
+        frequency_penalty: 0,
+        presence_penalty: 0,
+    });
+    console.log(response.data.choices[0].text);
+    return response.data.choices[0].text;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 async function readAndExecuteFile(fileName, folderName) {
   return new Promise((resolve, reject) => {
     fs.readFile(fileName, 'utf8', (err, data) => {
@@ -256,6 +483,4 @@ async function readAndExecuteFile(fileName, folderName) {
   });
 }
 
-readAndExecuteFile('input.txt','testing');
-
-module.exports = { executeCode, getGeneratedCode }
+module.exports = { executeCode, getGeneratedCode, convertRawOutputToCommandList, getStylizedCode, convertCommandsToRawOutput, getFileCommands }

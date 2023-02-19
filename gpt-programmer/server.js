@@ -2,7 +2,13 @@ const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
 const { Configuration, OpenAIApi } = require("openai");
-const { getGeneratedCode, executeCode } = require('./CodeRunner');
+const { 
+  getGeneratedCode, 
+  executeCode, 
+  convertRawOutputToCommandList,
+  convertCommandsToRawOutput,
+  getFileCommands,
+  getStylizedCode } = require('./CodeRunner');
 const cors = require('cors');
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
@@ -17,7 +23,24 @@ app.use(cors());
 app.get('/generate-code', async (req, res) => {
   console.log(req);
   const generatedCode = await getGeneratedCode(req.query.prompt);
-  const response = await executeCode(generatedCode);
+  let commandList = await convertRawOutputToCommandList(generatedCode);
+  console.log(typeof req.query.applyExtraStyling);
+
+  if (req.query.applyExtraStyling === "true") {
+    console.log("Request wants extra styling.");
+    const fileCommands = await getFileCommands(commandList);
+    const rawFileCommands = await convertCommandsToRawOutput(fileCommands);
+    const stylizedCode = await getStylizedCode(rawFileCommands);
+    let stylizedCommandList = await convertRawOutputToCommandList(stylizedCode);
+    commandList = commandList
+      .slice(0, commandList.length - 1)
+      .concat(stylizedCommandList)
+      .concat(commandList[commandList.length - 1]);
+
+    console.log("commandList after styling: ", commandList);
+  }
+
+  const response = await executeCode(commandList);
   res.send({
     data: response
   });
