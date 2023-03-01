@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+      "module": "NodeNext",
+      "moduleResolution": "NodeNext",
+      "target": "ES2021",
+      "sourceMap": true,
+      "skipLibCheck": true,
+      "outDir": "dist",
+      "lib": [
+        "dom",
+        "es5",
+        "scripthost",
+        "es2021.promise"
+      ]
+    },
+    "include": ["src/**/*"],
+}
