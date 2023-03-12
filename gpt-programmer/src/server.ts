@@ -212,7 +212,8 @@ if (process.env.ENV_STAGE === 'development' || process.env.ENV_STAGE === 'test')
     console.log(`Listening on port ${port}`);
   });
 } else {
-  https.createServer(app).listen(port, () => {
+  https.createServer(options, app)
+  .listen(port, () => {
     console.log(`Listening on port ${port}`);
   });
 }
