@@ -38,8 +38,8 @@ app.use(express.json());
 app.use(cors());
 
 const options = {
-  key: fs.readFileSync("server.key"),
-  cert: fs.readFileSync("server.cert"),
+  key: fs.readFileSync("server.key", "utf8"),
+  cert: fs.readFileSync("server.cert", "utf8"),
 };
 
 app.get('/generate-code', async (req, res) => {
