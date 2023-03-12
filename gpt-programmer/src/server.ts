@@ -95,6 +95,7 @@ app.get('/generate-code', async (req, res) => {
 
   const response: ExecuteCodeResponse = await executeCode(commandList, request.generatedCodeFolder);
   response.code = convertCommandsToRawOutput(commandList);
+  response.generatedCodeFolder = request.generatedCodeFolder;
   res.send({
     response
   });
@@ -113,6 +114,10 @@ app.get('/edit-code', async (req, res) => {
     console.log("Refreshing cache entry for pid: ", request.pid);
     myCache.set(request.pid.toString(), request.pid.toString(), 60 * 5);
   }
+  if (!request.generatedCodeFolder) {
+    console.log("No generated code folder. Returning.");
+    return;
+  }
 
   const originalCommandList = convertRawOutputToCommandList(request.code);
   const originalFilesList = await getFileCommands(originalCommandList);
@@ -124,7 +129,6 @@ app.get('/edit-code', async (req, res) => {
   const cdCommands = convertCommandsToRawOutput(cdCommandsList);
   const editedCodeWithCdCommands = cdCommands + editedCode;
   let commandList = convertRawOutputToCommandList(editedCodeWithCdCommands);
-  console.log("Command List: ", commandList);
 
   const response: ExecuteCodeResponse = await executeCode(commandList, request.generatedCodeFolder);
   console.log("Code finished executing. Response: ", response);
@@ -133,6 +137,7 @@ app.get('/edit-code', async (req, res) => {
   const finalFilesList = dedupeFileList(originalCommandList, editedFilesList);
   const finalFiles = convertCommandsToRawOutput(finalFilesList);
   response.code = finalFiles;
+  response.generatedCodeFolder = request.generatedCodeFolder;
   res.send({
     response
   });
@@ -167,6 +172,7 @@ app.get('generate-code-multiturn', async (req, res) => {
 
   const response: ExecuteCodeResponse = await executeCode(commandList);
   response.code = convertCommandsToRawOutput(commandList);
+  response.generatedCodeFolder = request.generatedCodeFolder;
   res.send({
     data: response
   });
