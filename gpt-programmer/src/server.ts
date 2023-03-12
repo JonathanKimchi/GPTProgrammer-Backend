@@ -207,6 +207,13 @@ app.get('/debug-code', async (req, res) => {
 
 const port = process.env.PORT || 4242;
 
-https.createServer(app).listen(port, () => {
+if (process.env.ENV_STAGE === 'development' || process.env.ENV_STAGE === 'test') {
+  app.listen(port, () => {
     console.log(`Listening on port ${port}`);
-});
+  });
+} else {
+  https.createServer(app).listen(port, () => {
+    console.log(`Listening on port ${port}`);
+  });
+}
+

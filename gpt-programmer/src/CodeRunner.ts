@@ -50,7 +50,7 @@ const runBuildCommand = async (command, folderName): Promise<BuildOutput> => {
     });
     let output = '';
     // store the pid of the process in myCache and have the entry expire after 5 minutes
-    myCache.set(buildProcess.pid.toString(), buildProcess.pid.toString(), 60*.5);
+    myCache.set(buildProcess.pid.toString(), buildProcess.pid.toString(), 60*5);
 
     buildProcess.stdout.on('data', function(data) {
       console.log(data);
@@ -80,7 +80,7 @@ const runBuildCommand = async (command, folderName): Promise<BuildOutput> => {
         console.log('Killing build process');
         treeKill(buildProcess.pid, 'SIGTERM');
       }
-    }, 60*1000 * 1);
+    }, 60*1000 * 6);
   });
 };
 
