@@ -1,8 +1,10 @@
 export interface ExecuteCodeResponse {
     // The result of the execution.
-    result: string;
+    result?: string;
     code: string;
     requestedInformation?: any;
-    isFinished: boolean;
+    generatedCodeFolder?: string;
+    pid?: string;
+    isFinished?: boolean;
     error?: string;
 }

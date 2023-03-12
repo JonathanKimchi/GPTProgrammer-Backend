@@ -5,11 +5,14 @@ import { resolve } from 'path';
 
 import { Configuration, OpenAIApi } from "openai";
 
+import { myCache } from './server';
+
 import dotenv from 'dotenv';
 import { Command } from './models/commands/Command';
 import { BuildCommand } from './models/commands/BuildCommand';
 import { FileCommand } from './models/commands/FileCommand';
 import { ExecuteCodeResponse } from './models/ExecuteCodeResponse';
+import { BuildOutput } from './models/BuildOutput';
 dotenv.config({path: '.env'});
 
 const configuration = new Configuration({
@@ -33,7 +36,7 @@ const runCommand = async (command, folderName) => {
   });
 };
 
-const runBuildCommand = async (command, folderName) => {
+const runBuildCommand = async (command, folderName): Promise<BuildOutput> => {
   console.log(`Running Build command: ${command} in folder: ${folderName}`);
   return new Promise((resolve, reject)=> {
     var buildProcess = exec(`cd ${folderName} && ${command}`, (error, stdout, stderr) => {
@@ -45,12 +48,19 @@ const runBuildCommand = async (command, folderName) => {
       console.error(`stderr: ${stderr}`);
     });
     let output = '';
+    // store the pid of the process in myCache and have the entry expire after 5 minutes
+    myCache.set(buildProcess.pid.toString(), buildProcess.pid.toString(), 300000);
+
     buildProcess.stdout.on('data', function(data) {
       console.log(data);
       output+=data.toString();
-      if (output.includes('Started Metro Bundler')) {
+      if (output.includes('Your native app')) {
         // server successfully started. Print.
-        resolve(output);
+        resolve({
+          output: output,
+          childProcess: buildProcess,
+          pid: buildProcess.pid,
+        });
       }
     });
     let errorOutput = '';
@@ -62,6 +72,14 @@ const runBuildCommand = async (command, folderName) => {
       errorOutput+=data.toString();
       // reject(errorOutput);
     });
+
+    setInterval(() => {
+      console.log('Checking if build process with pid: ', buildProcess.pid, ' is still running');
+      if (!myCache.get(buildProcess.pid.toString())) {
+        console.log('Killing build process');
+        buildProcess.kill('SIGINT');
+      }
+    }, 30000);
   });
 };
 
@@ -223,12 +241,16 @@ async function interpretInput(commandList: Command[], folderName = "test"): Prom
         case 'build_command':
           console.log('Command found! Running...');
           lastLineRun = command;
-          const buildOutput = await runBuildCommand(command, currentDirectory);
-          const qrCodeUri = filterBuildOutput(buildOutput);
-          return {
+          const buildOutput: BuildOutput = await runBuildCommand(command, currentDirectory);
+          const qrCodeUri = filterBuildOutput(buildOutput.output);
+          const rawCode = convertCommandsToRawOutput(commandList);
+          let response: ExecuteCodeResponse = {
             result: qrCodeUri,
-          } as ExecuteCodeResponse;
-          break;
+            pid: buildOutput.pid.toString(),
+            code: rawCode, // TODO: Remove code field.
+            generatedCodeFolder: folderName,
+          };
+          return response;
         case 'run_command':
           console.log('Command found! Running...');
           lastLineRun = command;
@@ -345,14 +367,14 @@ export async function executeCode(input: any[], folderName = 'test') {
 }
 
 export async function getGeneratedCode(prompt: string) {
-  const prePrompt = "You are a bot that takes in a prompt about an app/backend/website as input and generates the directions on how to make the app in a format that's easily parseable.\n\nif files need to be created, show me the files in this format:\n\nnew_file: {path of file}\n{content of file}\nend new_file\n\nif a command needs to be run, show me the command in this format:\n\nrun_command: {command to be run}\n\nif a build command needs to be run, show me the command in this format:\n\nbuild_command: {command to be run}\n\nif a command needs to be run, always use a non-interactive command (for example, use \"npm init -y\" instead of \"npm init\", and preface commands with \"yes |\" if necessary).\n\nif additional information is required, display that information to the user in this format:\n\nrequest_info: {Prompt for Info}--{name of variable within code}\n\nif multiple user-created files are required, you should create all the files required.\n\nInput: Show me how I can create an app using react native that tells the weather of new york.\n\nHere's a step-by-step process to create a weather app using React Native:\n\nCreate a new React Native project:\nrun_command: expo init WeatherApp --template blank\n\nChange into the project directory:\nrun_command: cd WeatherApp\n\nInstall dependencies:\nrun_command: npm install axios\n\nRequest an API key from a weather API provider such as OpenWeatherMap:\nrequest_info: OpenWeatherMap API key--OPENWEATHERMAP_API_KEY\n\nCreate a file weather.js in root of the project:\nnew_file: weather.js\n```\nimport axios from 'axios';\n\nconst fetchWeather = async (city) => {\n  const res = await axios.get(\n    `http://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid={{OPENWEATHERMAP_API_KEY}}`\n  );\n  \n  return res.data;\n};\n\nexport default fetchWeather;\n```\nend new_file\n\nCreate a file App.js in the root of the project:\nnew_file: App.js\n```\nimport React, { useState, useEffect } from 'react';\nimport { View, Text, StyleSheet } from 'react-native';\nimport fetchWeather from './weather';\n\nconst App = () => {\n  const [weather, setWeather] = useState({});\n\n  useEffect(() => {\n    fetchWeather('New York').then((data) => setWeather(data));\n  }, []);\n\n  return (\n    <View style={styles.container}>\n      <Text style={styles.city}>{weather.name}</Text>\n      <Text style={styles.temp}>{Math.round(weather.main && weather.main.temp)}°C</Text>\n      <Text style={styles.description}>{weather.weather && weather.weather[0].description}</Text>\n    </View>\n  );\n};\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    alignItems: 'center',\n    justifyContent: 'center',\n  },\n  city: {\n    fontSize: 32,\n    fontWeight: \"bold\",\n    marginBottom: 16,\n  },\n  temp: {\n    fontSize: 48,\n    fontWeight: \"bold\",\n    marginBottom: 16,\n  },\n  description: {\n    fontSize: 24,\n    fontWeight: \"bold\",\n  },\n});\n\nexport default App;\n```\nend new_file\n\nStart the app:\nbuild_command: expo start\n\nInput: Create a Calculator App.\n\nHere's a step-by-step process to create a Calculator app using React Native Expo:\n\nCreate a new React Native project:\nrun_command: expo init CalculatorApp --template blank\n\nChange into the project directory:\nrun_command: cd CalculatorApp\n\nCreate a file App.js in the root of the project:\nnew_file: App.js\n\n```\nimport React, { useState } from 'react';\nimport { View, Text, StyleSheet, TextInput, Button } from 'react-native';\n\nconst App = () => {\n  const [input, setInput] = useState('');\n\n  const handleInput = (text) => {\n    setInput(text);\n  };\n\n  const handleButtonPress = (text) => {\n    setInput(input + text);\n  };\n\n  const handleEvaluate = () => {\n    const expression = input;\n    setInput(String(eval(expression)));\n  };\n\n  const handleClear = () => {\n    setInput('');\n  };\n\n  return (\n    <View style={styles.container}>\n      <TextInput\n        style={styles.textInput}\n        placeholder=\"Enter an expression\"\n        value={input}\n        onChangeText={handleInput}\n      />\n      <View style={styles.buttonsContainer}>\n        <Button title=\"7\" onPress={() => handleButtonPress('7')} />\n        <Button title=\"8\" onPress={() => handleButtonPress('8')} />\n        <Button title=\"9\" onPress={() => handleButtonPress('9')} />\n        <Button title=\"+\" onPress={() => handleButtonPress('+')} />\n      </View>\n      <View style={styles.buttonsContainer}>\n        <Button title=\"4\" onPress={() => handleButtonPress('4')} />\n        <Button title=\"5\" onPress={() => handleButtonPress('5')} />\n        <Button title=\"6\" onPress={() => handleButtonPress('6')} />\n        <Button title=\"-\" onPress={() => handleButtonPress('-')} />\n      </View>\n      <View style={styles.buttonsContainer}>\n        <Button title=\"1\" onPress={() => handleButtonPress('1')} />\n        <Button title=\"2\" onPress={() => handleButtonPress('2')} />\n        <Button title=\"3\" onPress={() => handleButtonPress('3')} />\n        <Button title=\"*\" onPress={() => handleButtonPress('*')} />\n      </View>\n      <View style={styles.buttonsContainer}>\n        <Button title=\"Clear\" onPress={handleClear} />\n        <Button title=\"0\" onPress={() => handleButtonPress('0')} />\n        <Button title=\"=\" onPress={handleEvaluate} />\n        <Button title=\"/\" onPress={() => handleButtonPress('/')} />\n      </View>\n    </View>\n  );\n};\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    paddingTop: 40,\n    alignItems: 'center',\n  },\n  textInput: {\n    width: '80%',\n    padding: 10,\n    margin: 10,\n    borderWidth: 1,\n    borderColor: '#ccc',\n  },\n  buttonsContainer: {\n    flexDirection: 'row',\n    justifyContent: 'space-around',\n    width: '80%',\n  },\n});\n\nexport default App;\n```\nend new_file\n\nStart the app:\nbuild_command: expo start\n\nInput: \n\n";
-  const request = prompt;
+  const prePrompt = "You are a bot that takes in a prompt about an app/backend/website as input and generates the directions on how to make the app in a format that's easily parseable.\n\nif files need to be created, show me the files in this format:\n\nnew_file: {path of file}\n{content of file}\nend new_file\n\nif a command needs to be run, show me the command in this format:\n\nrun_command: {command to be run}\n\nif a build command needs to be run, show me the command in this format:\n\nbuild_command: {command to be run}\n\nif a command needs to be run, always use a non-interactive command (for example, use \"npm init -y\" instead of \"npm init\", and preface commands with \"yes |\" if necessary).\n\nif additional information is required, display that information to the user in this format:\n\nrequest_info: {Prompt for Info}--{name of variable within code}\n\nif multiple user-created files are required, you should create all the files required.\n\nInput: Show me how I can create an app using react native that tells the weather of new york.\n\nOutput:\nHere's a step-by-step process to create a weather app using React Native:\n\nCreate a new React Native project:\nrun_command: expo init WeatherApp --template blank\n\nChange into the project directory:\nrun_command: cd WeatherApp\n\nInstall dependencies:\nrun_command: npm install axios\n\nRequest an API key from a weather API provider such as OpenWeatherMap:\nrequest_info: OpenWeatherMap API key--OPENWEATHERMAP_API_KEY\n\nCreate a file weather.js in root of the project:\nnew_file: weather.js\n```\nimport axios from 'axios';\n\nconst fetchWeather = async (city) => {\n  const res = await axios.get(\n    `http://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid={{OPENWEATHERMAP_API_KEY}}`\n  );\n  \n  return res.data;\n};\n\nexport default fetchWeather;\n```\nend new_file\n\nCreate a file App.js in the root of the project:\nnew_file: App.js\n```\nimport React, { useState, useEffect } from 'react';\nimport { View, Text, StyleSheet } from 'react-native';\nimport fetchWeather from './weather';\n\nconst App = () => {\n  const [weather, setWeather] = useState({});\n\n  useEffect(() => {\n    fetchWeather('New York').then((data) => setWeather(data));\n  }, []);\n\n  return (\n    <View style={styles.container}>\n      <Text style={styles.city}>{weather.name}</Text>\n      <Text style={styles.temp}>{Math.round(weather.main && weather.main.temp)}°C</Text>\n      <Text style={styles.description}>{weather.weather && weather.weather[0].description}</Text>\n    </View>\n  );\n};\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    alignItems: 'center',\n    justifyContent: 'center',\n  },\n  city: {\n    fontSize: 32,\n    fontWeight: \"bold\",\n    marginBottom: 16,\n  },\n  temp: {\n    fontSize: 48,\n    fontWeight: \"bold\",\n    marginBottom: 16,\n  },\n  description: {\n    fontSize: 24,\n    fontWeight: \"bold\",\n  },\n});\n\nexport default App;\n```\nend new_file\n\nStart the app using ngrok:\nbuild_command: expo start --tunnel\n\nInput: Create a Calculator App.\n\nOutput:\nHere's a step-by-step process to create a Calculator app using React Native Expo:\n\nCreate a new React Native project:\nrun_command: expo init CalculatorApp --template blank\n\nChange into the project directory:\nrun_command: cd CalculatorApp\n\nCreate a file App.js in the root of the project:\nnew_file: App.js\n\n```\nimport React, { useState } from 'react';\nimport { View, Text, StyleSheet, TextInput, Button } from 'react-native';\n\nconst App = () => {\n  const [input, setInput] = useState('');\n\n  const handleInput = (text) => {\n    setInput(text);\n  };\n\n  const handleButtonPress = (text) => {\n    setInput(input + text);\n  };\n\n  const handleEvaluate = () => {\n    const expression = input;\n    setInput(String(eval(expression)));\n  };\n\n  const handleClear = () => {\n    setInput('');\n  };\n\n  return (\n    <View style={styles.container}>\n      <TextInput\n        style={styles.textInput}\n        placeholder=\"Enter an expression\"\n        value={input}\n        onChangeText={handleInput}\n      />\n      <View style={styles.buttonsContainer}>\n        <Button title=\"7\" onPress={() => handleButtonPress('7')} />\n        <Button title=\"8\" onPress={() => handleButtonPress('8')} />\n        <Button title=\"9\" onPress={() => handleButtonPress('9')} />\n        <Button title=\"+\" onPress={() => handleButtonPress('+')} />\n      </View>\n      <View style={styles.buttonsContainer}>\n        <Button title=\"4\" onPress={() => handleButtonPress('4')} />\n        <Button title=\"5\" onPress={() => handleButtonPress('5')} />\n        <Button title=\"6\" onPress={() => handleButtonPress('6')} />\n        <Button title=\"-\" onPress={() => handleButtonPress('-')} />\n      </View>\n      <View style={styles.buttonsContainer}>\n        <Button title=\"1\" onPress={() => handleButtonPress('1')} />\n        <Button title=\"2\" onPress={() => handleButtonPress('2')} />\n        <Button title=\"3\" onPress={() => handleButtonPress('3')} />\n        <Button title=\"*\" onPress={() => handleButtonPress('*')} />\n      </View>\n      <View style={styles.buttonsContainer}>\n        <Button title=\"Clear\" onPress={handleClear} />\n        <Button title=\"0\" onPress={() => handleButtonPress('0')} />\n        <Button title=\"=\" onPress={handleEvaluate} />\n        <Button title=\"/\" onPress={() => handleButtonPress('/')} />\n      </View>\n    </View>\n  );\n};\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    paddingTop: 40,\n    alignItems: 'center',\n  },\n  textInput: {\n    width: '80%',\n    padding: 10,\n    margin: 10,\n    borderWidth: 1,\n    borderColor: '#ccc',\n  },\n  buttonsContainer: {\n    flexDirection: 'row',\n    justifyContent: 'space-around',\n    width: '80%',\n  },\n});\n\nexport default App;\n```\nend new_file\n\nStart the app using ngrok:\nbuild_command: expo start --tunnel\n\nInput: ";
+  const request = prompt + "\n\nOutput:";
   console.log(request);
   const response = await openai.createCompletion({
     model: "text-davinci-003",
     prompt: prePrompt + request,
     temperature: 0.5,
-    max_tokens: 2100,
+    max_tokens: 1972,
     top_p: 1,
     frequency_penalty: 0,
     presence_penalty: 0,

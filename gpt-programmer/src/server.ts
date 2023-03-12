@@ -17,9 +17,15 @@ import {
  } from './CodeRunner';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import NodeCache from 'node-cache';
 import { ExecuteCodeRequest } from './models/ExecuteCodeRequest';
 import { ExecuteCodeResponse } from './models/ExecuteCodeResponse';
 dotenv.config({path: '.env'});
+
+// App Setup
+
+export const myCache = new NodeCache();
+myCache.set("generatedCodeFolder", 0);
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
@@ -32,7 +38,14 @@ app.use(cors());
 app.get('/generate-code', async (req, res) => {
   const request = req.query as ExecuteCodeRequest;
   console.log("Request received: ", req.query);
-  var generatedCode;
+
+  if (!request.generatedCodeFolder) {
+    const generatedCodeFolder: number = myCache.get("generatedCodeFolder");
+    myCache.set("generatedCodeFolder", generatedCodeFolder + 1);
+    request.generatedCodeFolder = generatedCodeFolder.toString();
+  }
+  
+  var generatedCode: string;
   if (request.requestedInformation) {
     console.log("Request has requested information. Adding to code.");
     generatedCode = addVariablesToCode(request.code, request.requestedInformation);
@@ -40,17 +53,16 @@ app.get('/generate-code', async (req, res) => {
     console.log("Generating code.");
     generatedCode = await getGeneratedCode(request.prompt);
   }
-  
   console.log("Generated code: ", generatedCode);
   const requestedInformation: any = getInformationRequest(generatedCode);
-  console.log("Requested Information: ", requestedInformation);
-  console.log("Requested Information Size: ", Object.keys(requestedInformation).length);
+
   if (Object.keys(requestedInformation).length > 0) {
     console.log("Request needs additional information. Returning.");
     res.send({
       response: {
         code: generatedCode,
         requestedInformation: requestedInformation,
+        generatedCodeFolder: request.generatedCodeFolder,
         isFinished: false,
       }
     });
@@ -74,16 +86,27 @@ app.get('/generate-code', async (req, res) => {
     console.log("commandList after styling: ", commandList);
   }
 
-  const response: ExecuteCodeResponse = await executeCode(commandList);
+  const response: ExecuteCodeResponse = await executeCode(commandList, request.generatedCodeFolder);
   response.code = convertCommandsToRawOutput(commandList);
   res.send({
     response
   });
 });
 
+/**
+ * This endpoint is used to handle the case where the user
+ * wants to edit the code that was generated.
+ */
 app.get('/edit-code', async (req, res) => {
   const request = req.query as ExecuteCodeRequest;
   console.log("Request received to edit code: ", req.query);
+
+  // if there is a pid in request, then refresh cache entry.
+  if (request.pid) {
+    console.log("Refreshing cache entry for pid: ", request.pid);
+    myCache.set(request.pid.toString(), request.pid.toString(), 60 * 5);
+  }
+
   const originalCommandList = convertRawOutputToCommandList(request.code);
   const originalFilesList = await getFileCommands(originalCommandList);
   const originalFiles = convertCommandsToRawOutput(originalFilesList);
@@ -96,7 +119,7 @@ app.get('/edit-code', async (req, res) => {
   let commandList = convertRawOutputToCommandList(editedCodeWithCdCommands);
   console.log("Command List: ", commandList);
 
-  const response: ExecuteCodeResponse = await executeCode(commandList);
+  const response: ExecuteCodeResponse = await executeCode(commandList, request.generatedCodeFolder);
   console.log("Code finished executing. Response: ", response);
   // now, combine the new edited code with the old edited files and return that.
   const editedFilesList = await getFileCommands(commandList);
