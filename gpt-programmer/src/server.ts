@@ -141,7 +141,7 @@ app.get('/edit-code', async (req, res) => {
     const cdCommands = convertCommandsToRawOutput(cdCommandsList);
     const editedCodeWithCdCommands = cdCommands + editedCode;
     let commandList = convertRawOutputToCommandList(editedCodeWithCdCommands);
-    commandList.push(await getBuildCommands(originalCommandList));
+    commandList = commandList.concat(await getBuildCommands(originalCommandList));
 
     const response: ExecuteCodeResponse = await executeCode(commandList, request.generatedCodeFolder);
     console.log("Code finished executing. Response: ", response);
