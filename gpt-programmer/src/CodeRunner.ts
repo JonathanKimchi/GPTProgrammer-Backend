@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
 import { resolve } from 'path';
+import treeKill from 'tree-kill';
 
 import { Configuration, OpenAIApi } from "openai";
 
@@ -49,7 +50,7 @@ const runBuildCommand = async (command, folderName): Promise<BuildOutput> => {
     });
     let output = '';
     // store the pid of the process in myCache and have the entry expire after 5 minutes
-    myCache.set(buildProcess.pid.toString(), buildProcess.pid.toString(), 300000);
+    myCache.set(buildProcess.pid.toString(), buildProcess.pid.toString(), 60*.5);
 
     buildProcess.stdout.on('data', function(data) {
       console.log(data);
@@ -74,12 +75,12 @@ const runBuildCommand = async (command, folderName): Promise<BuildOutput> => {
     });
 
     setInterval(() => {
-      console.log('Checking if build process with pid: ', buildProcess.pid, ' is still running');
+      console.log('Checking if build process with pid: ', buildProcess.pid, ' is still cached');
       if (!myCache.get(buildProcess.pid.toString())) {
         console.log('Killing build process');
-        buildProcess.kill('SIGINT');
+        treeKill(buildProcess.pid, 'SIGTERM');
       }
-    }, 30000);
+    }, 60*1000 * 1);
   });
 };
 

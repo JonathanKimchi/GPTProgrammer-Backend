@@ -19,7 +19,8 @@
     "fs": "^0.0.1-security",
     "node-cache": "^5.1.2",
     "openai": "^3.1.0",
-    "react-native-elements": "^3.4.3"
+    "react-native-elements": "^3.4.3",
+    "tree-kill": "^1.2.2"
   },
   "devDependencies": {
     "@types/node": "^18.14.1",
