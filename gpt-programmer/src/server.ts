@@ -40,8 +40,8 @@ app.use(express.json());
 app.use(cors());
 
 const options = {
-  key: fs.readFileSync("server.key", "utf8"),
-  cert: fs.readFileSync("server.cert", "utf8"),
+  key: fs.readFileSync("/etc/letsencrypt/live/appgpt-backend.com/privkey.pem", "utf8"),
+  cert: fs.readFileSync("/etc/letsencrypt/live/appgpt-backend.com/fullchain.pem", "utf8"),
 };
 
 app.get('/generate-code', async (req, res) => {
