@@ -21,6 +21,8 @@ import NodeCache from 'node-cache';
 import { ExecuteCodeRequest } from './models/ExecuteCodeRequest';
 import { ExecuteCodeResponse } from './models/ExecuteCodeResponse';
 dotenv.config({path: '.env'});
+import fs from 'fs';
+import https from 'https';
 
 // App Setup
 
@@ -34,6 +36,11 @@ const openai = new OpenAIApi(configuration);
 
 app.use(express.json());
 app.use(cors());
+
+const options = {
+  key: fs.readFileSync("server.key"),
+  cert: fs.readFileSync("server.cert"),
+};
 
 app.get('/generate-code', async (req, res) => {
   const request = req.query as ExecuteCodeRequest;
@@ -199,6 +206,7 @@ app.get('/debug-code', async (req, res) => {
 });
 
 const port = process.env.PORT || 4242;
-app.listen(port, () => {
-  console.log(`App is listening on port ${port}`);
+
+https.createServer(app).listen(port, () => {
+    console.log(`Listening on port ${port}`);
 });
