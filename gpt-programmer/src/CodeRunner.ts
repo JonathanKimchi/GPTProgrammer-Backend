@@ -40,7 +40,7 @@ const runCommand = async (command, folderName) => {
 const runBuildCommand = async (command, folderName): Promise<BuildOutput> => {
   console.log(`Running Build command: ${command} in folder: ${folderName}`);
   return new Promise((resolve, reject)=> {
-    var buildProcess = exec(`cd ${folderName} && ${command}`, (error, stdout, stderr) => {
+    var buildProcess = exec(`cd ${folderName} && echo y | ${command}`, (error, stdout, stderr) => {
       if (error) {
         console.error(`Error: ${error}`);
         reject(error);
@@ -348,6 +348,16 @@ export async function getFileCommands(commandList: any[]) {
     }
   }
   return fileCommands;
+}
+
+export async function getBuildCommands(commandList: any[]) {
+  const buildCommands = [];
+  for (let command of commandList) {
+    if (command.type === 'build_command') {
+      buildCommands.push(command);
+    }
+  }
+  return buildCommands;
 }
 
 export async function getCdCommands(commandList: any[]) {

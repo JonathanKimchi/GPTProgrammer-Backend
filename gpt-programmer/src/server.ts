@@ -13,7 +13,8 @@ import {
   getInformationRequest,
   getMultiturnCode,
   getCdCommands,
-  dedupeFileList
+  dedupeFileList,
+  getBuildCommands
  } from './CodeRunner';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -23,6 +24,7 @@ import { ExecuteCodeResponse } from './models/ExecuteCodeResponse';
 dotenv.config({path: '.env'});
 import fs from 'fs';
 import https from 'https';
+import treeKill from 'tree-kill';
 
 // App Setup
 
@@ -46,59 +48,68 @@ app.get('/generate-code', async (req, res) => {
   const request = req.query as ExecuteCodeRequest;
   console.log("Request received: ", req.query);
 
-  if (!request.generatedCodeFolder) {
-    const generatedCodeFolder: number = myCache.get("generatedCodeFolder");
-    myCache.set("generatedCodeFolder", generatedCodeFolder + 1);
-    request.generatedCodeFolder = generatedCodeFolder.toString();
-  }
+  try {
+    if (!request.generatedCodeFolder) {
+      const generatedCodeFolder: number = myCache.get("generatedCodeFolder");
+      myCache.set("generatedCodeFolder", generatedCodeFolder + 1);
+      request.generatedCodeFolder = generatedCodeFolder.toString();
+    }
+    
+    var generatedCode: string;
+    if (request.requestedInformation) {
+      console.log("Request has requested information. Adding to code.");
+      generatedCode = addVariablesToCode(request.code, request.requestedInformation);
+    } else {
+      console.log("Generating code.");
+      generatedCode = await getGeneratedCode(request.prompt);
+    }
+    console.log("Generated code: ", generatedCode);
+    const requestedInformation: any = getInformationRequest(generatedCode);
   
-  var generatedCode: string;
-  if (request.requestedInformation) {
-    console.log("Request has requested information. Adding to code.");
-    generatedCode = addVariablesToCode(request.code, request.requestedInformation);
-  } else {
-    console.log("Generating code.");
-    generatedCode = await getGeneratedCode(request.prompt);
-  }
-  console.log("Generated code: ", generatedCode);
-  const requestedInformation: any = getInformationRequest(generatedCode);
-
-  if (Object.keys(requestedInformation).length > 0) {
-    console.log("Request needs additional information. Returning.");
+    if (Object.keys(requestedInformation).length > 0) {
+      console.log("Request needs additional information. Returning.");
+      res.send({
+        response: {
+          code: generatedCode,
+          requestedInformation: requestedInformation,
+          generatedCodeFolder: request.generatedCodeFolder,
+          isFinished: false,
+        }
+      });
+      return;
+    }
+  
+    let commandList = convertRawOutputToCommandList(generatedCode);
+    console.log("Command List: ", commandList);
+  
+    if (request.applyExtraStyling === "true") {
+      console.log("Request wants extra styling.");
+      const fileCommands = await getFileCommands(commandList);
+      const rawFileCommands = convertCommandsToRawOutput(fileCommands);
+      const stylizedCode = await getStylizedCode(rawFileCommands);
+      let stylizedCommandList = convertRawOutputToCommandList(stylizedCode);
+      commandList = commandList
+        .slice(0, commandList.length - 1)
+        .concat(stylizedCommandList)
+        .concat(commandList[commandList.length - 1]);
+  
+      console.log("commandList after styling: ", commandList);
+    }
+  
+    const response: ExecuteCodeResponse = await executeCode(commandList, request.generatedCodeFolder);
+    response.code = convertCommandsToRawOutput(commandList);
+    response.generatedCodeFolder = request.generatedCodeFolder;
+    res.send({
+      response
+    });
+  } catch (error) {
+    console.log("Error: ", error);
     res.send({
       response: {
-        code: generatedCode,
-        requestedInformation: requestedInformation,
-        generatedCodeFolder: request.generatedCodeFolder,
-        isFinished: false,
+        error: error.message,
       }
     });
-    return;
   }
-
-  let commandList = convertRawOutputToCommandList(generatedCode);
-  console.log("Command List: ", commandList);
-
-  if (request.applyExtraStyling === "true") {
-    console.log("Request wants extra styling.");
-    const fileCommands = await getFileCommands(commandList);
-    const rawFileCommands = convertCommandsToRawOutput(fileCommands);
-    const stylizedCode = await getStylizedCode(rawFileCommands);
-    let stylizedCommandList = convertRawOutputToCommandList(stylizedCode);
-    commandList = commandList
-      .slice(0, commandList.length - 1)
-      .concat(stylizedCommandList)
-      .concat(commandList[commandList.length - 1]);
-
-    console.log("commandList after styling: ", commandList);
-  }
-
-  const response: ExecuteCodeResponse = await executeCode(commandList, request.generatedCodeFolder);
-  response.code = convertCommandsToRawOutput(commandList);
-  response.generatedCodeFolder = request.generatedCodeFolder;
-  res.send({
-    response
-  });
 });
 
 /**
@@ -106,41 +117,46 @@ app.get('/generate-code', async (req, res) => {
  * wants to edit the code that was generated.
  */
 app.get('/edit-code', async (req, res) => {
-  const request = req.query as ExecuteCodeRequest;
-  console.log("Request received to edit code: ", req.query);
+  try {
+    const request = req.query as ExecuteCodeRequest;
+    console.log("Request received to edit code: ", req.query);
 
-  // if there is a pid in request, then refresh cache entry.
-  if (request.pid) {
-    console.log("Refreshing cache entry for pid: ", request.pid);
-    myCache.set(request.pid.toString(), request.pid.toString(), 60 * 5);
+    // if there is a pid in request, then kill it.
+    if (request.pid) {
+      console.log("Request has a pid. Killing process.");
+      treeKill(parseInt(request.pid), 'SIGTERM');
+    }
+    if (!request.generatedCodeFolder) {
+      console.log("No generated code folder. Returning.");
+      return;
+    }
+
+    const originalCommandList = convertRawOutputToCommandList(request.code);
+    const originalFilesList = await getFileCommands(originalCommandList);
+    const originalFiles = convertCommandsToRawOutput(originalFilesList);
+
+    const editedCode = await getMultiturnCode(request.prompt + "\n\n" + originalFiles);
+    console.log("Edited Code: ", editedCode);
+    const cdCommandsList = await getCdCommands(originalCommandList);
+    const cdCommands = convertCommandsToRawOutput(cdCommandsList);
+    const editedCodeWithCdCommands = cdCommands + editedCode;
+    let commandList = convertRawOutputToCommandList(editedCodeWithCdCommands);
+    commandList.push(await getBuildCommands(originalCommandList));
+
+    const response: ExecuteCodeResponse = await executeCode(commandList, request.generatedCodeFolder);
+    console.log("Code finished executing. Response: ", response);
+    // now, combine the new edited code with the old edited files and return that.
+    const editedFilesList = await getFileCommands(commandList);
+    const finalFilesList = dedupeFileList(originalCommandList, editedFilesList);
+    const finalFiles = convertCommandsToRawOutput(finalFilesList);
+    response.code = finalFiles;
+    response.generatedCodeFolder = request.generatedCodeFolder;
+    res.send({
+      response
+    });
+  } catch (e) {
+    console.log("Error editing code: ", e);
   }
-  if (!request.generatedCodeFolder) {
-    console.log("No generated code folder. Returning.");
-    return;
-  }
-
-  const originalCommandList = convertRawOutputToCommandList(request.code);
-  const originalFilesList = await getFileCommands(originalCommandList);
-  const originalFiles = convertCommandsToRawOutput(originalFilesList);
-
-  const editedCode = await getMultiturnCode(request.prompt + "\n\n" + originalFiles);
-  console.log("Edited Code: ", editedCode);
-  const cdCommandsList = await getCdCommands(originalCommandList);
-  const cdCommands = convertCommandsToRawOutput(cdCommandsList);
-  const editedCodeWithCdCommands = cdCommands + editedCode;
-  let commandList = convertRawOutputToCommandList(editedCodeWithCdCommands);
-
-  const response: ExecuteCodeResponse = await executeCode(commandList, request.generatedCodeFolder);
-  console.log("Code finished executing. Response: ", response);
-  // now, combine the new edited code with the old edited files and return that.
-  const editedFilesList = await getFileCommands(commandList);
-  const finalFilesList = dedupeFileList(originalCommandList, editedFilesList);
-  const finalFiles = convertCommandsToRawOutput(finalFilesList);
-  response.code = finalFiles;
-  response.generatedCodeFolder = request.generatedCodeFolder;
-  res.send({
-    response
-  });
 });
 
 /**
