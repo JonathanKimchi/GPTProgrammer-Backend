@@ -25,6 +25,7 @@ dotenv.config({path: '.env'});
 import fs from 'fs';
 import https from 'https';
 import treeKill from 'tree-kill';
+import { isDevelopment } from './environment/EnvConfig';
 
 // App Setup
 
@@ -39,10 +40,14 @@ const openai = new OpenAIApi(configuration);
 app.use(express.json());
 app.use(cors());
 
-const options = {
-  key: fs.readFileSync("/etc/letsencrypt/live/appgpt-backend.com/privkey.pem", "utf8"),
-  cert: fs.readFileSync("/etc/letsencrypt/live/appgpt-backend.com/fullchain.pem", "utf8"),
-};
+var options = {};
+
+if (!isDevelopment()) {
+  options = {
+    key: fs.readFileSync("/etc/letsencrypt/live/appgpt-backend.com/privkey.pem", "utf8"),
+    cert: fs.readFileSync("/etc/letsencrypt/live/appgpt-backend.com/fullchain.pem", "utf8"),
+  }
+}
 
 app.get('/generate-code', async (req, res) => {
   const request = req.query as ExecuteCodeRequest;
