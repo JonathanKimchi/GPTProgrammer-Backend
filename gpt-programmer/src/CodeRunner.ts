@@ -377,13 +377,25 @@ export async function executeCode(input: any[], folderName = 'test') {
   return executionResponse;
 }
 
-export async function getGeneratedCode(prompt: string) {
+export async function getGeneratedCode(userChatRequest: string, chatHistory: any[] = []) {
   const prePrompt = "You are a bot that takes in a prompt about an app/backend/website as input and generates the directions on how to make the app in a format that's easily parseable.\n\nif files need to be created, show me the files in this format:\n\nnew_file: {path of file}\n{content of file}\nend new_file\n\nif a command needs to be run, show me the command in this format:\n\nrun_command: {command to be run}\n\nif a build command needs to be run, show me the command in this format:\n\nbuild_command: {command to be run}\n\nif a command needs to be run, always use a non-interactive command (for example, use \"npm init -y\" instead of \"npm init\", and preface commands with \"yes |\" if necessary).\n\nif additional information is required, display that information to the user in this format:\n\nrequest_info: {Prompt for Info}--{name of variable within code}\n\nif multiple user-created files are required, you should create all the files required.\n\nInput: Show me how I can create an app using react native that tells the weather of new york.\n\nOutput:\nHere's a step-by-step process to create a weather app using React Native:\n\nCreate a new React Native project:\nrun_command: expo init WeatherApp --template blank\n\nChange into the project directory:\nrun_command: cd WeatherApp\n\nInstall dependencies:\nrun_command: npm install axios\n\nRequest an API key from a weather API provider such as OpenWeatherMap:\nrequest_info: OpenWeatherMap API key--OPENWEATHERMAP_API_KEY\n\nCreate a file weather.js in root of the project:\nnew_file: weather.js\n```\nimport axios from 'axios';\n\nconst fetchWeather = async (city) => {\n  const res = await axios.get(\n    `http://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid={{OPENWEATHERMAP_API_KEY}}`\n  );\n  \n  return res.data;\n};\n\nexport default fetchWeather;\n```\nend new_file\n\nCreate a file App.js in the root of the project:\nnew_file: App.js\n```\nimport React, { useState, useEffect } from 'react';\nimport { View, Text, StyleSheet } from 'react-native';\nimport fetchWeather from './weather';\n\nconst App = () => {\n  const [weather, setWeather] = useState({});\n\n  useEffect(() => {\n    fetchWeather('New York').then((data) => setWeather(data));\n  }, []);\n\n  return (\n    <View style={styles.container}>\n      <Text style={styles.city}>{weather.name}</Text>\n      <Text style={styles.temp}>{Math.round(weather.main && weather.main.temp)}°C</Text>\n      <Text style={styles.description}>{weather.weather && weather.weather[0].description}</Text>\n    </View>\n  );\n};\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    alignItems: 'center',\n    justifyContent: 'center',\n  },\n  city: {\n    fontSize: 32,\n    fontWeight: \"bold\",\n    marginBottom: 16,\n  },\n  temp: {\n    fontSize: 48,\n    fontWeight: \"bold\",\n    marginBottom: 16,\n  },\n  description: {\n    fontSize: 24,\n    fontWeight: \"bold\",\n  },\n});\n\nexport default App;\n```\nend new_file\n\nStart the app using ngrok:\nbuild_command: expo start --tunnel\n\nInput: Create a Calculator App.\n\nOutput:\nHere's a step-by-step process to create a Calculator app using React Native Expo:\n\nCreate a new React Native project:\nrun_command: expo init CalculatorApp --template blank\n\nChange into the project directory:\nrun_command: cd CalculatorApp\n\nCreate a file App.js in the root of the project:\nnew_file: App.js\n\n```\nimport React, { useState } from 'react';\nimport { View, Text, StyleSheet, TextInput, Button } from 'react-native';\n\nconst App = () => {\n  const [input, setInput] = useState('');\n\n  const handleInput = (text) => {\n    setInput(text);\n  };\n\n  const handleButtonPress = (text) => {\n    setInput(input + text);\n  };\n\n  const handleEvaluate = () => {\n    const expression = input;\n    setInput(String(eval(expression)));\n  };\n\n  const handleClear = () => {\n    setInput('');\n  };\n\n  return (\n    <View style={styles.container}>\n      <TextInput\n        style={styles.textInput}\n        placeholder=\"Enter an expression\"\n        value={input}\n        onChangeText={handleInput}\n      />\n      <View style={styles.buttonsContainer}>\n        <Button title=\"7\" onPress={() => handleButtonPress('7')} />\n        <Button title=\"8\" onPress={() => handleButtonPress('8')} />\n        <Button title=\"9\" onPress={() => handleButtonPress('9')} />\n        <Button title=\"+\" onPress={() => handleButtonPress('+')} />\n      </View>\n      <View style={styles.buttonsContainer}>\n        <Button title=\"4\" onPress={() => handleButtonPress('4')} />\n        <Button title=\"5\" onPress={() => handleButtonPress('5')} />\n        <Button title=\"6\" onPress={() => handleButtonPress('6')} />\n        <Button title=\"-\" onPress={() => handleButtonPress('-')} />\n      </View>\n      <View style={styles.buttonsContainer}>\n        <Button title=\"1\" onPress={() => handleButtonPress('1')} />\n        <Button title=\"2\" onPress={() => handleButtonPress('2')} />\n        <Button title=\"3\" onPress={() => handleButtonPress('3')} />\n        <Button title=\"*\" onPress={() => handleButtonPress('*')} />\n      </View>\n      <View style={styles.buttonsContainer}>\n        <Button title=\"Clear\" onPress={handleClear} />\n        <Button title=\"0\" onPress={() => handleButtonPress('0')} />\n        <Button title=\"=\" onPress={handleEvaluate} />\n        <Button title=\"/\" onPress={() => handleButtonPress('/')} />\n      </View>\n    </View>\n  );\n};\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    paddingTop: 40,\n    alignItems: 'center',\n  },\n  textInput: {\n    width: '80%',\n    padding: 10,\n    margin: 10,\n    borderWidth: 1,\n    borderColor: '#ccc',\n  },\n  buttonsContainer: {\n    flexDirection: 'row',\n    justifyContent: 'space-around',\n    width: '80%',\n  },\n});\n\nexport default App;\n```\nend new_file\n\nStart the app using ngrok:\nbuild_command: expo start --tunnel\n\nInput: ";
-  const request = prompt + "\n\nOutput:";
-  console.log(request);
-  const response = await openai.createCompletion({
-    model: "text-davinci-003",
-    prompt: prePrompt + request,
+  console.log(userChatRequest);
+  const systemContext = {
+    "role": "system",
+    "content": prePrompt,
+  }
+  const userRequest = {
+    "role": "user",
+    "content": userChatRequest,
+  }
+  const existingMessages = []
+  existingMessages.push(systemContext);
+  existingMessages.push(...chatHistory);
+  existingMessages.push(userRequest);
+
+  const response = await openai.createChatCompletion({
+    model: "gpt-4",
+    messages: existingMessages,
     temperature: 0.5,
     max_tokens: 1972,
     top_p: 1,
@@ -391,25 +403,34 @@ export async function getGeneratedCode(prompt: string) {
     presence_penalty: 0,
   });
   console.log(response.data.choices[0]);
-  return response.data.choices[0].text;
+  return response.data.choices[0].message;
 }
 
 export async function getDebuggingCode(errLog: string) {
-  await sleep(8000);
   const prePrompt = "You are a bot that takes in a log of a build error and generates the directions in a format that's easily parseable.\n\nif files need to be created, show me the files in this format:\n\nnew_file: {path of file}\n{content of file}\nend new_file\n\nif a command needs to be run, show me the command in this format:\n\nrun_command: {command to be run}\n\nif a command needs to be run, always use a non-interactive command.\n\nif multiple user-created files are required, you should create all the files required.\n\nInput: How can I fix this code?\n\n";
-    const request = errLog;
-    const response = await openai.createCompletion({
-        model: "text-davinci-003",
-        prompt: prePrompt + request,
-        temperature: 0.7,
-        max_tokens: 1000,
-        top_p: 1,
-        frequency_penalty: 0,
-        presence_penalty: 0,
-    });
-    console.log(response.data.choices[0].text);
-    return response.data.choices[0].text;
+  const request = errLog;
+  const response = await openai.createChatCompletion({
+    model: "gpt-4",
+    messages: [
+      {
+        "role": "system",
+        "content": prePrompt,
+      },
+      {
+        "role": "user",
+        "content": request,
+      },
+    ],
+    temperature: 0.5,
+    max_tokens: 1972,
+    top_p: 1,
+    frequency_penalty: 0,
+    presence_penalty: 0,
+  });
+  console.log(response.data.choices[0].message);
+  return response.data.choices[0].message;
 }
+
 
 export async function getMultiturnCode(prompt: string) {
   const prePrompt = "You are a bot that takes in code samples, a user's input of a bug report, and outputs fixed code with an explanation of how the code should be fixed.\n\nif a command such as an installation command needs to be run, show me the command in this format:\n\nrun_command: {command to be run}\n\nif files need to be created or edited, show me the files in this format. :\n\nnew_file: {path of file}\n{content of file}\nend new_file\n\nif files need to be edited, always show me the entire edited file instead of code snippets of the edited parts.\n\nif additional information is required, display that information to the user in this format:\n\nrequest_info: {Prompt for Info}-- {name of variable within code}\n\nInput: When I open it I'm supposed to see the weather in New York, but all I see is a pair of curly brackets. Why is that, and how do I fix it?\n\nHere are the relevant files:\n\nnew_file: App.js\n```\n\nimport React, { useState, useEffect } from 'react';\nimport { View, Text, StyleSheet } from 'react-native';\nimport fetchWeather from './weather';\n\nconst App = () => {\n  const [weather, setWeather] = useState({});\n\n  useEffect(() => {\n    fetchWeather('New York').then((data) => setWeather(data));\n  }, []);\n\n  return (\n    <View style={styles.container}>\n      <Text>{JSON.stringify(weather)}</Text>\n    </View>\n  );\n};\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    alignItems: 'center',\n    justifyContent: 'center',\n  },\n});\n\nexport default App;\n```\nend new_file\n\nnew_file: weather.js\n```\n\nimport axios from 'axios';\n\nconst fetchWeather = async (city) => {\n  const res = await axios.get(\n    `http://api.openweathermap.org/data/2.5/weather?q=${city}&units=imperial`\n  );\n\n  return res.data;\n};\n\nexport default fetchWeather;\n```\nend new_file\n\nOutput: \n\nThe curly brackets around the weather object indicate that the object is being displayed as a string. In this case, it is because JSON.stringify is being used to display the weather object in the Text component.\n\nTo fix this, you can display the specific weather information you want by accessing the appropriate properties of the weather object. For example, you could display the temperature by using {weather.main && weather.main.temp} instead of {JSON.stringify(weather)}. This would display the temperature as a number instead of as a string.\n\nAdditionally, make sure that the API key for OpenWeatherMap is properly configured and included in the API call. You can get an API key by signing up for an account at https://openweathermap.org/api.\n\nI can fix the code for you. Here's an updated App.js file that should display the temperature in New York correctly:\n\nnew_file: App.js\n```\n\nimport React, { useState, useEffect } from 'react';\nimport { View, Text, StyleSheet } from 'react-native';\nimport fetchWeather from './weather';\n\nconst App = () => {\n  const [weather, setWeather] = useState({});\n\n  useEffect(() => {\n    fetchWeather('New York').then((data) => setWeather(data));\n  }, []);\n\n  return (\n    <View style={styles.container}>\n      <Text>The temperature in New York is {weather.main && weather.main.temp} degrees.</Text>\n    </View>\n  );\n};\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    alignItems: 'center',\n    justifyContent: 'center',\n  },\n});\n\nexport default App;\n\n```\nend new_file\n\nInput: ";
