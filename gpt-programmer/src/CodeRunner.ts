@@ -435,17 +435,26 @@ export async function getDebuggingCode(errLog: string) {
 export async function getMultiturnCode(prompt: string) {
   const prePrompt = "You are a bot that takes in code samples, a user's input of a bug report, and outputs fixed code with an explanation of how the code should be fixed.\n\nif a command such as an installation command needs to be run, show me the command in this format:\n\nrun_command: {command to be run}\n\nif files need to be created or edited, show me the files in this format. :\n\nnew_file: {path of file}\n{content of file}\nend new_file\n\nif files need to be edited, always show me the entire edited file instead of code snippets of the edited parts.\n\nif additional information is required, display that information to the user in this format:\n\nrequest_info: {Prompt for Info}-- {name of variable within code}\n\nInput: When I open it I'm supposed to see the weather in New York, but all I see is a pair of curly brackets. Why is that, and how do I fix it?\n\nHere are the relevant files:\n\nnew_file: App.js\n```\n\nimport React, { useState, useEffect } from 'react';\nimport { View, Text, StyleSheet } from 'react-native';\nimport fetchWeather from './weather';\n\nconst App = () => {\n  const [weather, setWeather] = useState({});\n\n  useEffect(() => {\n    fetchWeather('New York').then((data) => setWeather(data));\n  }, []);\n\n  return (\n    <View style={styles.container}>\n      <Text>{JSON.stringify(weather)}</Text>\n    </View>\n  );\n};\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    alignItems: 'center',\n    justifyContent: 'center',\n  },\n});\n\nexport default App;\n```\nend new_file\n\nnew_file: weather.js\n```\n\nimport axios from 'axios';\n\nconst fetchWeather = async (city) => {\n  const res = await axios.get(\n    `http://api.openweathermap.org/data/2.5/weather?q=${city}&units=imperial`\n  );\n\n  return res.data;\n};\n\nexport default fetchWeather;\n```\nend new_file\n\nOutput: \n\nThe curly brackets around the weather object indicate that the object is being displayed as a string. In this case, it is because JSON.stringify is being used to display the weather object in the Text component.\n\nTo fix this, you can display the specific weather information you want by accessing the appropriate properties of the weather object. For example, you could display the temperature by using {weather.main && weather.main.temp} instead of {JSON.stringify(weather)}. This would display the temperature as a number instead of as a string.\n\nAdditionally, make sure that the API key for OpenWeatherMap is properly configured and included in the API call. You can get an API key by signing up for an account at https://openweathermap.org/api.\n\nI can fix the code for you. Here's an updated App.js file that should display the temperature in New York correctly:\n\nnew_file: App.js\n```\n\nimport React, { useState, useEffect } from 'react';\nimport { View, Text, StyleSheet } from 'react-native';\nimport fetchWeather from './weather';\n\nconst App = () => {\n  const [weather, setWeather] = useState({});\n\n  useEffect(() => {\n    fetchWeather('New York').then((data) => setWeather(data));\n  }, []);\n\n  return (\n    <View style={styles.container}>\n      <Text>The temperature in New York is {weather.main && weather.main.temp} degrees.</Text>\n    </View>\n  );\n};\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    alignItems: 'center',\n    justifyContent: 'center',\n  },\n});\n\nexport default App;\n\n```\nend new_file\n\nInput: ";
   const request = prompt;
-  const response = await openai.createCompletion({
-      model: "text-davinci-003",
-      prompt: prePrompt + request,
-      temperature: 0.7,
-      max_tokens: 1900,
-      top_p: 1,
-      frequency_penalty: 0,
-      presence_penalty: 0,
+  const response = await openai.createChatCompletion({
+    model: "gpt-4",
+    messages: [
+      {
+        "role": "system",
+        "content": prePrompt,
+      },
+      {
+        "role": "user",
+        "content": request,
+      },
+    ],
+    temperature: 0.5,
+    max_tokens: 1972,
+    top_p: 1,
+    frequency_penalty: 0,
+    presence_penalty: 0,
   });
-  console.log(response.data.choices[0].text);
-  return response.data.choices[0].text;
+  console.log(response.data.choices[0].message);
+  return response.data.choices[0].message.content;
 }
 
 /**
