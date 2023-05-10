@@ -1,6 +1,14 @@
-import { Command } from "./Command";
+import { BaseCommand } from "./BaseCommand";
 
-export interface RunCommand extends Command {
-    type: "run_command";
-    command: string;
-}
+export class RunCommand extends BaseCommand {
+    static commandType = "run_command";
+    static documentation = "This is a description of RunCommand.";
+  
+    constructor(command: string) {
+      super(RunCommand.commandType, command);
+    }
+  
+    execute() {
+      // Implementation of RunCommand
+    }
+  }

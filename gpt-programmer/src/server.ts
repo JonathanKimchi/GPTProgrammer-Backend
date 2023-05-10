@@ -49,6 +49,19 @@ if (!isDevelopment()) {
   }
 }
 
+app.get('/generate-app', async (req, res) => {
+  const request = req.query as ExecuteCodeRequest;
+  console.log("Request received: ", req.query);
+  
+  try {
+    if (!request.generatedCodeFolder) {
+      const generatedCodeFolder: number = myCache.get("generatedCodeFolder");
+      myCache.set("generatedCodeFolder", generatedCodeFolder + 1);
+      request.generatedCodeFolder = generatedCodeFolder.toString();
+    }
+    
+}
+
 app.get('/generate-code', async (req, res) => {
   const request = req.query as ExecuteCodeRequest;
   console.log("Request received: ", req.query);

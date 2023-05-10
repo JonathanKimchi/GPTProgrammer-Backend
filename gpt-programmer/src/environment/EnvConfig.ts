@@ -6,3 +6,6 @@ export function isDevelopment() {
     }
     return false;
 }
+
+export const LLM_LABEL = "openai";
+export const LLM_MODEL = "gpt-4";

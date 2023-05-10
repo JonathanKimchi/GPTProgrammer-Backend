@@ -1,8 +1,14 @@
-import { Command } from "./Command";
+import { BaseCommand } from "./BaseCommand";
 
-
-export interface BuildCommand extends Command {
-    // TODO: deprecate the "type" field as it is redundant
-    type: "build_command";
-    command: string;
+export class BuildCommand extends BaseCommand {
+    static commandType = "build_command";
+    static documentation = "This is a description of BuildCommand.";
+  
+    constructor(command: string) {
+      super(BuildCommand.commandType, command);
+    }
+  
+    execute() {
+      // Implementation of BuildCommand
+    }
 }
