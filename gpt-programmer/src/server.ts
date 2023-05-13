@@ -26,6 +26,7 @@ import fs from 'fs';
 import https from 'https';
 import treeKill from 'tree-kill';
 import { isDevelopment } from './environment/EnvConfig';
+import { getBestFitApisForRequestedInfo } from './APIInfoRetriever';
 
 // App Setup
 
@@ -70,8 +71,16 @@ app.get('/generate-code', async (req, res) => {
     }
     console.log("Generated code: ", generatedCode);
     const requestedInformation: any = getInformationRequest(generatedCode);
-  
-    if (Object.keys(requestedInformation).length > 0) {
+    console.log("Requested information: ", requestedInformation);
+    // if there is requested information, search for it in the local vector database
+
+    const bestFitApis = await getBestFitApisForRequestedInfo(requestedInformation);
+    console.log("Best fit apis: ", bestFitApis);
+
+    const generatedCodeWithApis = addVariablesToCode(generatedCode, bestFitApis);
+
+    // if the information is not found, return the information request to the user
+    if (Object.keys(requestedInformation).length !== Object.keys(bestFitApis).length) {
       console.log("Request needs additional information. Returning.");
       res.send({
         response: {
@@ -84,7 +93,7 @@ app.get('/generate-code', async (req, res) => {
       return;
     }
   
-    let commandList = convertRawOutputToCommandList(generatedCode);
+    let commandList = convertRawOutputToCommandList(generatedCodeWithApis);
     console.log("Command List: ", commandList);
   
     if (request.applyExtraStyling === "true") {
