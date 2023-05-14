@@ -215,12 +215,15 @@ async function processInput(inputString) {
 
 export function addVariablesToCode(generatedCode: string, requestedInformation: Map<string, string>) {
   generatedCode = generatedCode.replace('request_info: ', '');
-    const requestedInformationArray = Object.entries(requestedInformation);
-    for (let [key, value] of requestedInformationArray) {
-        generatedCode = generatedCode.replace(`{{${key}}}`, value);
-    }
+  const requestedInformationArray = Object.entries(requestedInformation);
+  for (let [key, value] of requestedInformationArray) {
+    let regex = new RegExp(`{{${key}}}`, 'g');
+    generatedCode = generatedCode.replace(regex, value);
+  }
   return generatedCode;
 }
+
+
 
 /**
  * This function takes in a list of commands and runs the commands
