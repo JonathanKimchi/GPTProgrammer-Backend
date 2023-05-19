@@ -30,6 +30,21 @@ import { getBestFitApisForRequestedInfo } from './APIInfoRetriever';
 
 // App Setup
 
+// Create a writable stream to the log file
+const logStream = fs.createWriteStream('server.log', { flags: 'a' });
+
+// Redirect console output to the log stream
+console.log = (...args: any[]) => {
+  const logArgs = args.map((arg) => (typeof arg === 'object' ? JSON.stringify(arg) : arg));
+  const logMessage = logArgs.join(' ');
+
+  const timestamp = new Date().toISOString();
+  
+  logStream.write(`[${timestamp}] ${logMessage}\n`);
+  process.stdout.write(`[${timestamp}] ${logMessage}\n`);
+};
+
+
 export const myCache = new NodeCache();
 myCache.set("generatedCodeFolder", 0);
 
@@ -144,8 +159,18 @@ app.get('/edit-code', async (req, res) => {
       console.log("No generated code folder. Returning.");
       return;
     }
+    
+    let generatedCode = request.code;
 
-    const originalCommandList = convertRawOutputToCommandList(request.code);
+    console.log("Generated code: ", generatedCode);
+    const requestedInformation: any = getInformationRequest(generatedCode);
+    
+    const bestFitApis = await getBestFitApisForRequestedInfo(requestedInformation);
+    console.log("Best fit apis: ", bestFitApis);
+    const generatedCodeWithApis = addVariablesToCode(generatedCode, bestFitApis);
+    generatedCode = generatedCodeWithApis;
+
+    const originalCommandList = convertRawOutputToCommandList(generatedCode);
     const originalFilesList = await getFileCommands(originalCommandList);
     const originalFiles = convertCommandsToRawOutput(originalFilesList);
 
