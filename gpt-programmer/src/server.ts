@@ -92,9 +92,10 @@ app.get('/generate-code', async (req, res) => {
     let tempCommandList = convertRawOutputToCommandList(generatedCode);
     let fileCommandRequests = await getFileCommands(tempCommandList);
     let fileCommands = await getFileCommandsForRequests(fileCommandRequests, request.prompt);
+    console.log("New File commands: ", fileCommands);
     tempCommandList = replaceFilesInCommandList(tempCommandList, fileCommands);
+    console.log("Temp command list: ", tempCommandList);
     generatedCode = convertCommandsToRawOutput(tempCommandList);
-
 
     const requestedInformation: any = getInformationRequest(generatedCode);
     console.log("Requested information: ", requestedInformation);

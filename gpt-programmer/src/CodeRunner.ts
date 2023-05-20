@@ -380,7 +380,7 @@ export async function executeCode(input: any[], folderName = 'test') {
   return executionResponse;
 }
 
-export async function getChatCompletion(userChatRequest: string, chatHistory: any[] = [], prePrompt: string): Promise<string> {
+export async function getChatCompletion(userChatRequest: string, chatHistory: any[] = [], prePrompt: string, maxRetryCount: number = 3): Promise<string> {
   console.log(userChatRequest);
   const systemContext = {
     "role": "system",
@@ -394,19 +394,37 @@ export async function getChatCompletion(userChatRequest: string, chatHistory: an
   existingMessages.push(systemContext);
   existingMessages.push(...chatHistory);
   existingMessages.push(userRequest);
+  // length of the whole prompt:
+  const promptLength = existingMessages.reduce((acc, message) => acc + message.content.length, 0);
 
-  const response = await openai.createChatCompletion({
-    model: "gpt-4",
-    messages: existingMessages,
-    temperature: 0.5,
-    max_tokens: 5000,
-    top_p: 1,
-    frequency_penalty: 0,
-    presence_penalty: 0,
-  });
+  let response = null;
+  let attempt = 0;
+  while (attempt < maxRetryCount) {
+    try {
+      response = await openai.createChatCompletion({
+        model: "gpt-4",
+        messages: existingMessages,
+        temperature: 0.5,
+        max_tokens: 8000 - promptLength,
+        top_p: 1,
+        frequency_penalty: 0,
+        presence_penalty: 0,
+      });
+      break;
+    } catch (error) {
+      console.error(`Error in attempt ${attempt + 1}. Retrying...`, error);
+      attempt++;
+      if (attempt >= maxRetryCount) {
+        console.error(`Failed after ${attempt} attempts. Giving up...`, error);
+        throw error;  // If all retries fail, propagate the error up
+      }
+    }
+  }
+  
   console.log(response.data.choices[0]);
   return response.data.choices[0].message.content;
 }
+
 
 
 
@@ -490,7 +508,7 @@ export async function getStylizedCode(codeSnippet: string) {
 export function replaceFilesInCommandList(commandList: Command[], fileList: FileCommand[]) {
   // replace all the files in the commandList with the files in the fileList if they have the same filePath
   const newCommandList = commandList.map((command) => {
-    if (command.type === "file_command") {
+    if (command.type === "new_file") {
       const newFile = fileList.find((file) => file.filePath === command.filePath);
       if (newFile) {
         return newFile;

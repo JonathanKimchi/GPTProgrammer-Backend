@@ -1,0 +1,1 @@
+Create an app that allows for users to chat with each other. Users should be able to register, login, and join chat rooms.

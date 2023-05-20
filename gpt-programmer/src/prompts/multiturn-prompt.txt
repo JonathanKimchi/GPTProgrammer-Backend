@@ -39,6 +39,10 @@ News API
 The Movie Database (TMDb) API
 ]
 
+when displaying the requested info in code, put a placeholder in this format:
+
+{{constant value you put in the request_info}}
+
 Input: When I open it I'm supposed to see the weather in New York, but all I see is a pair of curly brackets. Why is that, and how do I fix it?
 
 Here are the relevant files:
