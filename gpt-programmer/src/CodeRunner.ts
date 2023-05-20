@@ -380,8 +380,7 @@ export async function executeCode(input: any[], folderName = 'test') {
   return executionResponse;
 }
 
-export async function getGeneratedCode(userChatRequest: string, chatHistory: any[] = []): Promise<string> {
-  const prePrompt = readFileSync("src/prompts/frontend-prompt.txt", "utf-8");
+export async function getChatCompletion(userChatRequest: string, chatHistory: any[] = [], prePrompt: string): Promise<string> {
   console.log(userChatRequest);
   const systemContext = {
     "role": "system",
@@ -407,6 +406,14 @@ export async function getGeneratedCode(userChatRequest: string, chatHistory: any
   });
   console.log(response.data.choices[0]);
   return response.data.choices[0].message.content;
+}
+
+
+
+export async function getGeneratedCode(userChatRequest: string, chatHistory: any[] = []): Promise<string> {
+  const prePrompt = readFileSync("src/prompts/frontend-prompt.txt", "utf-8");
+  const response = await getChatCompletion(userChatRequest, chatHistory, prePrompt);
+  return response;
 }
 
 export async function getDebuggingCode(errLog: string) {
@@ -478,6 +485,24 @@ export async function getStylizedCode(codeSnippet: string) {
     });
     console.log(response.data.choices[0].text);
     return response.data.choices[0].text;
+}
+
+export function replaceFilesInCommandList(commandList: Command[], fileList: FileCommand[]) {
+  // replace all the files in the commandList with the files in the fileList if they have the same filePath
+  const newCommandList = commandList.map((command) => {
+    if (command.type === "file_command") {
+      const newFile = fileList.find((file) => file.filePath === command.filePath);
+      if (newFile) {
+        return newFile;
+      } else {
+        return command;
+      }
+    } else {
+      return command;
+    }
+  });
+
+  return newCommandList;
 }
 
 export function dedupeFileList(oldFileList: FileCommand[], newFileList: FileCommand[]) {

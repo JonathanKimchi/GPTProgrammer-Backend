@@ -1,0 +1,108 @@
+Here's a step-by-step process to create a chat app using React Native Expo and Firebase:
+
+Create a new React Native project:
+run_command: expo init ChatApp --template blank
+
+Change into the project directory:
+run_command: cd ChatApp
+
+Install dependencies:
+run_command: npm install firebase react-native-gifted-chat @react-navigation/native @react-navigation/stack
+
+Request Firebase API configuration:
+request_info: Firebase API/Firebase Config--FIREBASE_CONFIG
+
+Create a file firebaseConfig.js in the root of the project:
+new_file: firebaseConfig.js
+{
+    "file_name": "firebaseConfig.js",
+    "file_path": "firebaseConfig.js",
+    "summary": "This file is used to configure and initialize Firebase with the provided Firebase API configuration.",
+    "imports": ["firebase"],
+    "exports": ["default firebase"]
+}
+end new_file
+
+Create a file AuthProvider.js in the root of the project:
+new_file: AuthProvider.js
+{
+    "file_name": "AuthProvider.js",
+    "file_path": "AuthProvider.js",
+    "summary": "This file is used to create an authentication context for the app, which will be used to manage user authentication state.",
+    "imports": ["React", "createContext", "useState", "useEffect", "firebase"],
+    "functions": [{
+        "name": "AuthProvider",
+        "inputs": ["children: any"],
+        "outputs": ["AuthProvider: any"]
+    }],
+    "exports": ["AuthContext", "AuthProvider"]
+}
+end new_file
+
+Create a file App.js in the root of the project:
+new_file: App.js
+{
+    "file_name": "App.js",
+    "file_path": "App.js",
+    "summary": "This file is used to create the main app component, which includes the navigation stack and the authentication provider.",
+    "imports": ["React", "NavigationContainer", "createStackNavigator", "AuthProvider", "LoginScreen", "RegisterScreen", "ChatRoomScreen"],
+    "functions": [{
+        "name": "App",
+        "inputs": [],
+        "outputs": ["App: any"]
+    }],
+    "exports": ["default App"],
+    "build_command": "expo start --tunnel"
+}
+end new_file
+
+Create a file LoginScreen.js in the root of the project:
+new_file: LoginScreen.js
+{
+    "file_name": "LoginScreen.js",
+    "file_path": "LoginScreen.js",
+    "summary": "This file is used to create the login screen component, which includes a form for users to enter their email and password.",
+    "imports": ["React", "useState", "View", "Text", "StyleSheet", "TextInput", "Button", "AuthContext"],
+    "functions": [{
+        "name": "LoginScreen",
+        "inputs": [],
+        "outputs": ["LoginScreen: any"]
+    }],
+    "exports": ["default LoginScreen"]
+}
+end new_file
+
+Create a file RegisterScreen.js in the root of the project:
+new_file: RegisterScreen.js
+{
+    "file_name": "RegisterScreen.js",
+    "file_path": "RegisterScreen.js",
+    "summary": "This file is used to create the register screen component, which includes a form for users to enter their email, password, and display name.",
+    "imports": ["React", "useState", "View", "Text", "StyleSheet", "TextInput", "Button", "AuthContext"],
+    "functions": [{
+        "name": "RegisterScreen",
+        "inputs": [],
+        "outputs": ["RegisterScreen: any"]
+    }],
+    "exports": ["default RegisterScreen"]
+}
+end new_file
+
+Create a file ChatRoomScreen.js in the root of the project:
+new_file: ChatRoomScreen.js
+{
+    "file_name": "ChatRoomScreen.js",
+    "file_path": "ChatRoomScreen.js",
+    "summary": "This file is used to create the chat room screen component, which includes the GiftedChat component to display and send messages.",
+    "imports": ["React", "useState", "useEffect", "GiftedChat", "AuthContext", "firebase"],
+    "functions": [{
+        "name": "ChatRoomScreen",
+        "inputs": [],
+        "outputs": ["ChatRoomScreen: any"]
+    }],
+    "exports": ["default ChatRoomScreen"]
+}
+end new_file
+
+Start the app using ngrok:
+build_command: expo start --tunnel

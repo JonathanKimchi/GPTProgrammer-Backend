@@ -14,7 +14,8 @@ import {
   getMultiturnCode,
   getCdCommands,
   dedupeFileList,
-  getBuildCommands
+  getBuildCommands,
+  replaceFilesInCommandList
  } from './CodeRunner';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -26,7 +27,8 @@ import fs from 'fs';
 import https from 'https';
 import treeKill from 'tree-kill';
 import { isDevelopment } from './environment/EnvConfig';
-import { getBestFitApisForRequestedInfo } from './APIInfoRetriever';
+import { getBestFitApisForRequestedInfo } from './agents/APIInfoRetriever';
+import { getFileCommandsForRequests } from './agents/PageCreator';
 
 // App Setup
 
@@ -85,6 +87,15 @@ app.get('/generate-code', async (req, res) => {
       generatedCode = await getGeneratedCode(request.prompt);
     }
     console.log("Generated code: ", generatedCode);
+
+    // expand the pages within the code into real code.
+    let tempCommandList = convertRawOutputToCommandList(generatedCode);
+    let fileCommandRequests = await getFileCommands(tempCommandList);
+    let fileCommands = await getFileCommandsForRequests(fileCommandRequests, request.prompt);
+    tempCommandList = replaceFilesInCommandList(tempCommandList, fileCommands);
+    generatedCode = convertCommandsToRawOutput(tempCommandList);
+
+
     const requestedInformation: any = getInformationRequest(generatedCode);
     console.log("Requested information: ", requestedInformation);
     // if there is requested information, search for it in the local vector database
