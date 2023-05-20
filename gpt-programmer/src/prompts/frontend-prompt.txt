@@ -31,6 +31,7 @@ PokeAPI
 Random User API
 News API
 The Movie Database (TMDb) API
+Firebase API/Firebase Config
 ]
 
 if using an external API, try to use apis that don't require keys (example: Jikan API, CoinGecko API, etc).

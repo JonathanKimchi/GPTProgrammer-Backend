@@ -389,7 +389,7 @@ export async function getGeneratedCode(userChatRequest: string, chatHistory: any
   }
   const userRequest = {
     "role": "user",
-    "content": userChatRequest,
+    "content": userChatRequest + ". Make sure to use React Native Expo.",
   }
   const existingMessages = []
   existingMessages.push(systemContext);
@@ -400,7 +400,7 @@ export async function getGeneratedCode(userChatRequest: string, chatHistory: any
     model: "gpt-4",
     messages: existingMessages,
     temperature: 0.5,
-    max_tokens: 4000,
+    max_tokens: 5000,
     top_p: 1,
     frequency_penalty: 0,
     presence_penalty: 0,
