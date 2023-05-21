@@ -394,14 +394,21 @@ export async function getChatCompletion(userChatRequest: string, chatHistory: an
   existingMessages.push(systemContext);
   existingMessages.push(...chatHistory);
   existingMessages.push(userRequest);
-  // length of the whole prompt:
-  const promptLength = existingMessages.reduce((acc, message) => acc + message.content.length, 0);
-
-  let response = null;
+  
+  let totalResult = "";
+  let finishReason = "";
   let attempt = 0;
   while (attempt < maxRetryCount) {
     try {
-      response = await openai.createChatCompletion({
+      // length of the whole prompt:
+      const promptLength = existingMessages.reduce((acc, message) => acc + message.content.length, 0);
+
+      if (promptLength > 8000) {
+        // Trim the prompt if its length exceeds 8000 tokens
+        existingMessages[0].content = existingMessages[0].content.substring(promptLength - 8000);
+      }
+
+      const response = await openai.createChatCompletion({
         model: "gpt-4",
         messages: existingMessages,
         temperature: 0.2,
@@ -410,7 +417,15 @@ export async function getChatCompletion(userChatRequest: string, chatHistory: an
         frequency_penalty: 0,
         presence_penalty: 0,
       });
-      break;
+      totalResult += response.data.choices[0].message.content;
+      finishReason = response.data.choices[0].finish_reason;
+
+      // If the API has reached a stop condition, break the loop
+      if (finishReason === "stop") {
+        break;
+      }
+
+      existingMessages.push(response.data.choices[0].message);
     } catch (error) {
       console.error(`Error in attempt ${attempt + 1}. Retrying...`, error);
       attempt++;
@@ -421,9 +436,10 @@ export async function getChatCompletion(userChatRequest: string, chatHistory: an
     }
   }
   
-  console.log(response.data.choices[0]);
-  return response.data.choices[0].message.content;
+  console.log(totalResult);
+  return totalResult;
 }
+
 
 
 
