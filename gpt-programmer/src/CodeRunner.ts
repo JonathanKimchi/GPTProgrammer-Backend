@@ -404,7 +404,7 @@ export async function getChatCompletion(userChatRequest: string, chatHistory: an
       response = await openai.createChatCompletion({
         model: "gpt-4",
         messages: existingMessages,
-        temperature: 0.5,
+        temperature: 0.2,
         max_tokens: 8000 - promptLength,
         top_p: 1,
         frequency_penalty: 0,

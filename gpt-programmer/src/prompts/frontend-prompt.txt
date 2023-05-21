@@ -20,11 +20,12 @@ if a build command needs to be run, show me the command in this format:
 
 build_command: {command to be run}
 
-if an installation command is run, always state 
-the specific package version you'd like to install. Make sure that the version
-you're installing is supported. example:
+if an installation command is run and the package is in this list, use 
+the version in this list:
 
-run_command: npm install firebase@8.2.3
+[
+  run_command: npm install firebase@8.2.3
+]
 
 if a command needs to be run, always use a non-interactive command (for example, use "npm init -y" instead of "npm init", and preface commands with "yes |" if necessary).
 
@@ -53,7 +54,7 @@ if multiple user-created files are required, you should create all the files req
 Input: Show me how I can create an app using react native that tells the weather of new york.
 
 Output:
-Here's a step-by-step process to create a weather app using React Native:
+Here's a step-by-step process to create a weather app using React Native Expo (no files excluded):
 
 Create a new React Native project:
 run_command: expo init WeatherApp --template blank
@@ -62,7 +63,7 @@ Change into the project directory:
 run_command: cd WeatherApp
 
 Install dependencies:
-run_command: npm install axios@0.27.2
+run_command: npm install axios
 
 Request an API key from a weather API provider such as OpenWeatherMap:
 request_info: OpenWeatherMap API key--OPENWEATHERMAP_API_KEY
@@ -108,7 +109,7 @@ build_command: expo start --tunnel
 Input: Create a Calculator App.
 
 Output:
-Here's a step-by-step process to create a Calculator app using React Native Expo:
+Here's a step-by-step process to create a Calculator app using React Native Expo (no files excluded):
 
 Create a new React Native project:
 run_command: expo init CalculatorApp --template blank
