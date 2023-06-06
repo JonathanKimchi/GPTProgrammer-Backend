@@ -19,6 +19,10 @@ dotenv.config({path: '.env'});
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const LLM_MODEL = "gpt-3.5";
+const MAX_TOKENS = 4000;
+
 const openai = new OpenAIApi(configuration);
 
 const runCommand = async (command, folderName) => {
@@ -401,18 +405,19 @@ export async function getChatCompletion(userChatRequest: string, chatHistory: an
   while (attempt < maxRetryCount) {
     try {
       // length of the whole prompt:
-      const promptLength = existingMessages.reduce((acc, message) => acc + message.content.length, 0);
+      let promptLength = existingMessages.reduce((acc, message) => acc + message.content.length, 0);
 
-      if (promptLength > 8000) {
+      if (promptLength > MAX_TOKENS) {
         // Trim the prompt if its length exceeds 8000 tokens
-        existingMessages[0].content = existingMessages[0].content.substring(promptLength - 8000);
+        existingMessages[0].content = existingMessages[0].content.substring(promptLength - MAX_TOKENS - 500);
+        promptLength = MAX_TOKENS - 500;
       }
 
       const response = await openai.createChatCompletion({
-        model: "gpt-4",
+        model: LLM_MODEL,
         messages: existingMessages,
         temperature: 0.2,
-        max_tokens: 8000 - promptLength,
+        max_tokens: MAX_TOKENS - promptLength,
         top_p: 1,
         frequency_penalty: 0,
         presence_penalty: 0,
@@ -454,7 +459,7 @@ export async function getDebuggingCode(errLog: string) {
   const prePrompt = "You are a bot that takes in a log of a build error and generates the directions in a format that's easily parseable.\n\nif files need to be created, show me the files in this format:\n\nnew_file: {path of file}\n{content of file}\nend new_file\n\nif a command needs to be run, show me the command in this format:\n\nrun_command: {command to be run}\n\nif a command needs to be run, always use a non-interactive command.\n\nif multiple user-created files are required, you should create all the files required.\n\nInput: How can I fix this code?\n\n";
   const request = errLog;
   const response = await openai.createChatCompletion({
-    model: "gpt-4",
+    model: LLM_MODEL,
     messages: [
       {
         "role": "system",
@@ -480,7 +485,7 @@ export async function getMultiturnCode(prompt: string) {
   const prePrompt = readFileSync("src/prompts/multiturn-prompt.txt", "utf-8");
   const request = prompt;
   const response = await openai.createChatCompletion({
-    model: "gpt-4",
+    model: LLM_MODEL,
     messages: [
       {
         "role": "system",
