@@ -84,7 +84,7 @@ const runBuildCommand = async (command, folderName): Promise<BuildOutput> => {
         console.log('Killing build process');
         treeKill(buildProcess.pid, 'SIGTERM');
       }
-    }, 60*1000 * 6);
+    }, 60*1000 * 24);
   });
 };
 
