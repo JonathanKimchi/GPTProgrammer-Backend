@@ -20,8 +20,8 @@ const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const LLM_MODEL = "gpt-3.5";
-const MAX_TOKENS = 4000;
+const LLM_MODEL = "gpt-4";
+const MAX_TOKENS = 7000;
 
 const openai = new OpenAIApi(configuration);
 
